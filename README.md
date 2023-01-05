@@ -22,6 +22,9 @@ Example from **module.h**:
 #pragma message("ADD PRECOMPILED HEADERS TO SILVER-BUN.")
 #endif // !USE_PRECOMPILED_HEADERS
 ```
+## Usage
+
+Refer to [this](https://github.com/IcePixelx/godot-key/blob/main/main.cpp) for example usage.
 
 ## Credits
 
