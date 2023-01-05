@@ -46,6 +46,7 @@ public:
 	uintptr_t        GetRVA(const uintptr_t nAddress) const;
 	
 	void UnlinkFromPEB();
+	CMemory FindFreeDataPage(const size_t nSize);
 
 	IMAGE_NT_HEADERS64*      m_pNTHeaders;
 	IMAGE_DOS_HEADER*        m_pDOSHeader;

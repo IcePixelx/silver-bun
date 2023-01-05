@@ -308,6 +308,53 @@ CMemory CModule::GetExportedFunction(const std::string& svFunctionName) const
 	return CMemory();
 }
 
+//-----------------------------------------------------------------------------
+// Purpose: find 'free' page in r/w/x sections
+// Input  : nSize -
+// Output : CMemory
+//-----------------------------------------------------------------------------
+CMemory CModule::FindFreeDataPage(const size_t nSize)
+{
+	auto checkDataSection = [](const void* address, const std::size_t size)
+	{
+		MEMORY_BASIC_INFORMATION membInfo = { 0 };
+
+		VirtualQuery(address, &membInfo, sizeof(membInfo));
+
+		if (membInfo.AllocationBase && membInfo.BaseAddress && membInfo.State == MEM_COMMIT && !(membInfo.Protect & PAGE_GUARD) && membInfo.Protect != PAGE_NOACCESS)
+		{
+			if ((membInfo.Protect & (PAGE_EXECUTE_READWRITE | PAGE_READWRITE)) && membInfo.RegionSize >= size)
+			{
+				return ((membInfo.Protect & (PAGE_EXECUTE_READWRITE | PAGE_READWRITE)) && membInfo.RegionSize >= size) ? true : false;
+			}
+		}
+		return false;
+	};
+
+	// This is very unstable, this doesn't check for the actual 'page' sizes.
+	// Also can be optimized to search per 'section'.
+	const uintptr_t endOfModule = m_pModuleBase + m_pNTHeaders->OptionalHeader.SizeOfImage - sizeof(uintptr_t);
+	for (uintptr_t currAddr = endOfModule; m_pModuleBase < currAddr; currAddr -= sizeof(uintptr_t))
+	{
+		if (*reinterpret_cast<uintptr_t*>(currAddr) == 0 && checkDataSection(reinterpret_cast<void*>(currAddr), nSize))
+		{
+			bool bIsGoodPage = true;
+			uint32_t nPageCount = 0;
+
+			for (; nPageCount < nSize && bIsGoodPage; nPageCount += sizeof(uintptr_t))
+			{
+				const uintptr_t pageData = *reinterpret_cast<std::uintptr_t*>(currAddr + nPageCount);
+				if (pageData != 0)
+					bIsGoodPage = false;
+			}
+
+			if (bIsGoodPage && nPageCount >= nSize)
+				return currAddr;
+		}
+	}
+
+	return CMemory();
+}
 
 //-----------------------------------------------------------------------------
 // Purpose: unlink module from peb
