@@ -26,7 +26,7 @@ public:
 			return m_nSectionSize != 0;
 		}
 
-		std::string m_svSectionName;           // Name of section.
+		std::string m_svSectionName;         // Name of section.
 		uintptr_t   m_pSectionBase;          // Start address of section.
 		size_t      m_nSectionSize;          // Size of section.
 	};

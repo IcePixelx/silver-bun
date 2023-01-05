@@ -220,6 +220,9 @@ CMemory CModule::FindString(const std::string& svString, const ptrdiff_t nOccurr
 //-----------------------------------------------------------------------------
 CMemory CModule::GetVirtualMethodTable(const std::string& svTableName, const uint32_t nRefIndex)
 {
+	if (!m_ReadOnlyData.IsSectionValid()) // Process decided to rename the readonlydata section if this fails.
+		return CMemory();
+
 	ModuleSections_t moduleSection = { ".data", m_RunTimeData.m_pSectionBase, m_RunTimeData.m_nSectionSize };
 
 	const auto tableNameInfo = Utils::StringToMaskedBytes(svTableName, false);
@@ -246,9 +249,7 @@ CMemory CModule::GetVirtualMethodTable(const std::string& svTableName, const uin
 		}
 
 		moduleSection = { ".rdata", m_ReadOnlyData.m_pSectionBase, m_ReadOnlyData.m_nSectionSize };
-		CMemory vfTable = FindPatternSIMD(reinterpret_cast<rsig_t>(&referenceOffset), "xxxxxxxx", &moduleSection).OffsetSelf(0x8);
-
-		return vfTable;
+		return FindPatternSIMD(reinterpret_cast<rsig_t>(&referenceOffset), "xxxxxxxx", &moduleSection).OffsetSelf(0x8);
 	}
 
 	return CMemory();
