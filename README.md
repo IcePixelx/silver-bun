@@ -22,3 +22,14 @@ Example from **module.h**:
 #pragma message("ADD PRECOMPILED HEADERS TO SILVER-BUN.")
 #endif // !USE_PRECOMPILED_HEADERS
 ```
+
+## Credits
+
+Adapted from: https://github.com/IcePixelx/IcyCore
+
+Creator: @IcePixelx
+Adjustments: @Mauler125, @r-ex
+
+## What does 'silver-bun' mean?
+
+It's the combination of two names from beautiful cats from two separate friends of mine!
