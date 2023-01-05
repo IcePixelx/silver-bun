@@ -30,6 +30,6 @@ Adapted from: https://github.com/IcePixelx/IcyCore
 Creator: @IcePixelx
 Adjustments: @Mauler125, @r-ex
 
-## What does 'silver-bun' mean?
+### What does 'silver-bun' mean?
 
 It's the combination of two names from beautiful cats from two separate friends of mine!
