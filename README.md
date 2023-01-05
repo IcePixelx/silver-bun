@@ -28,6 +28,7 @@ Example from **module.h**:
 Adapted from: https://github.com/IcePixelx/IcyCore
 
 Creator: @IcePixelx
+
 Adjustments: @Mauler125, @r-ex
 
 ### What does 'silver-bun' mean?
