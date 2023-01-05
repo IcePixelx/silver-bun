@@ -5,6 +5,7 @@
 //===========================================================================//
 #include "module.h"
 #include "utils.h"
+#include "tebpeb64.h"
 
 //-----------------------------------------------------------------------------
 // Purpose: constructor
@@ -305,6 +306,35 @@ CMemory CModule::GetExportedFunction(const std::string& svFunctionName) const
 		}
 	}
 	return CMemory();
+}
+
+
+//-----------------------------------------------------------------------------
+// Purpose: unlink module from peb
+//-----------------------------------------------------------------------------
+void CModule::UnlinkFromPEB() // Disclaimer: This does not bypass GetMappedFileName. That function calls NtQueryVirtualMemory which does a syscall to ntoskrnl for getting info on a section.
+{
+#define UNLINK_FROM_PEB(entry)    \
+	(entry).Flink->Blink = (entry).Blink; \
+	(entry).Blink->Flink = (entry).Flink;
+
+	const PEB64* processEnvBlock = reinterpret_cast<PEB64*>(__readgsqword(0x60)); // https://en.wikipedia.org/wiki/Win32_Thread_Information_Block
+	const LIST_ENTRY* inLoadOrderList = &processEnvBlock->Ldr->InLoadOrderModuleList;
+
+	for (LIST_ENTRY* entry = inLoadOrderList->Flink; entry != inLoadOrderList; entry = entry->Flink)
+	{
+		const PLDR_DATA_TABLE_ENTRY pldrEntry = reinterpret_cast<PLDR_DATA_TABLE_ENTRY>(entry->Flink);
+		const std::uintptr_t baseAddr = reinterpret_cast<std::uintptr_t>(pldrEntry->DllBase);
+
+		if (baseAddr != m_pModuleBase)
+			continue;
+
+		UNLINK_FROM_PEB(pldrEntry->InInitializationOrderLinks);
+		UNLINK_FROM_PEB(pldrEntry->InMemoryOrderLinks);
+		UNLINK_FROM_PEB(pldrEntry->InLoadOrderLinks);
+		break;
+	}
+#undef UNLINK_FROM_PEB
 }
 
 //-----------------------------------------------------------------------------

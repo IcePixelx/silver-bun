@@ -31,6 +31,8 @@ Creator: @IcePixelx
 
 Adjustments: @Mauler125, @r-ex
 
+tebpeb64.h: I sadly forgot where I got it from initially. Checkout the links in the header though!
+
 ### What does 'silver-bun' mean?
 
 It's the combination of two names from beautiful cats from two separate friends of mine!
