@@ -39,13 +39,14 @@ public:
 
 	CMemory          GetVirtualMethodTable(const std::string& svTableName, const uint32_t nRefIndex = 0);
 	CMemory          GetExportedFunction(const std::string& svFunctionName) const;
-	ModuleSections_t GetSectionByName(const std::string& svSectionName) const;
 	uintptr_t        GetModuleBase(void) const;
 	DWORD            GetModuleSize(void) const;
 	std::string      GetModuleName(void) const;
 	uintptr_t        GetRVA(const uintptr_t nAddress) const;
+	ModuleSections_t GetSectionByName(const std::string& svSectionName) const;
+	std::vector<CModule::ModuleSections_t>& GetSections();
 	
-	void UnlinkFromPEB();
+	void UnlinkFromPEB(void);
 	CMemory FindFreeDataPage(const size_t nSize);
 
 	IMAGE_NT_HEADERS64*      m_pNTHeaders;
@@ -59,8 +60,8 @@ public:
 private:
 	CMemory FindPatternSIMD(const uint8_t* szPattern, const char* szMask, const ModuleSections_t* moduleSection = nullptr, const uint32_t nOccurrence = 0) const;
 
-	std::string              m_svModuleName;
-	uintptr_t                m_pModuleBase;
-	DWORD                    m_nModuleSize;
+	std::string                   m_svModuleName;
+	uintptr_t                     m_pModuleBase;
+	DWORD                         m_nModuleSize;
 	std::vector<ModuleSections_t> m_vModuleSections;
 };

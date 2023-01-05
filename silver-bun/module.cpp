@@ -35,7 +35,6 @@ CModule::CModule(const std::string& svModuleName) : m_svModuleName(svModuleName)
 	m_ReadOnlyData = GetSectionByName(".rdata");
 }
 
-#ifndef PLUGINSDK
 //-----------------------------------------------------------------------------
 // Purpose: find array of bytes in process memory using SIMD instructions
 // Input  : *szPattern - 
@@ -254,7 +253,6 @@ CMemory CModule::GetVirtualMethodTable(const std::string& svTableName, const uin
 
 	return CMemory();
 }
-#endif // !PLUGINSDK
 
 //-----------------------------------------------------------------------------
 // Purpose: get address of exported function in this module
@@ -398,6 +396,14 @@ CModule::ModuleSections_t CModule::GetSectionByName(const std::string& svSection
 	}
 
 	return ModuleSections_t();
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: get all module sections.
+//-----------------------------------------------------------------------------
+std::vector<CModule::ModuleSections_t>& CModule::GetSections()
+{
+	return m_vModuleSections;
 }
 
 //-----------------------------------------------------------------------------
