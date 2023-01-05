@@ -27,8 +27,8 @@ public:
 		}
 
 		std::string m_svSectionName;           // Name of section.
-		uintptr_t   m_pSectionBase{};          // Start address of section.
-		size_t      m_nSectionSize{};          // Size of section.
+		uintptr_t   m_pSectionBase;          // Start address of section.
+		size_t      m_nSectionSize;          // Size of section.
 	};
 
 	CModule(void) = default;
