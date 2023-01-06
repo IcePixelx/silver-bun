@@ -13,12 +13,10 @@
 //-----------------------------------------------------------------------------
 CModule::CModule(const std::string& svModuleName) : m_svModuleName(svModuleName)
 {
-	const MODULEINFO mInfo = Utils::GetModuleInfo(svModuleName.c_str());
-	m_nModuleSize = static_cast<size_t>(mInfo.SizeOfImage);
-	m_pModuleBase = reinterpret_cast<uintptr_t>(mInfo.lpBaseOfDll);
-
-	m_pDOSHeader = reinterpret_cast<IMAGE_DOS_HEADER*>(m_pModuleBase);
-	m_pNTHeaders = reinterpret_cast<IMAGE_NT_HEADERS64*>(m_pModuleBase + m_pDOSHeader->e_lfanew);
+	m_pModuleBase = reinterpret_cast<uintptr_t>(GetModuleHandleA(svModuleName.c_str()));
+	m_pDOSHeader  = reinterpret_cast<IMAGE_DOS_HEADER*>(m_pModuleBase);
+	m_pNTHeaders  = reinterpret_cast<IMAGE_NT_HEADERS64*>(m_pModuleBase + m_pDOSHeader->e_lfanew);
+	m_nModuleSize = static_cast<size_t>(m_pNTHeaders->OptionalHeader.SizeOfImage);
 
 	const IMAGE_SECTION_HEADER* hSection = IMAGE_FIRST_SECTION(m_pNTHeaders); // Get first image section.
 
@@ -31,8 +29,8 @@ CModule::CModule(const std::string& svModuleName) : m_svModuleName(svModuleName)
 
 	m_ExecutableCode = GetSectionByName(".text");
 	m_ExceptionTable = GetSectionByName(".pdata");
-	m_RunTimeData = GetSectionByName(".data");
-	m_ReadOnlyData = GetSectionByName(".rdata");
+	m_RunTimeData    = GetSectionByName(".data");
+	m_ReadOnlyData   = GetSectionByName(".rdata");
 }
 
 //-----------------------------------------------------------------------------
@@ -213,7 +211,7 @@ CMemory CModule::FindString(const std::string& svString, const ptrdiff_t nOccurr
 }
 
 //-----------------------------------------------------------------------------
-// Purpose: get address of a virtual method table by rtti type descriptor name.
+// Purpose: get address of a virtual method table by rtti type descriptor name
 // Input  : *svTableName - 
 //			nRefIndex - 
 // Output : CMemory

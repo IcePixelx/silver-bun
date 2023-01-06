@@ -107,24 +107,4 @@ namespace Utils
         }
         return make_pair(vBytes, svMask);
     };
-
-    //----------------------------------------------------------------------------------------
-    // Purpose: Get information about the executing module.
-    //----------------------------------------------------------------------------------------
-    MODULEINFO GetModuleInfo(const char* szModule)
-    {
-        MODULEINFO modinfo = { 0 };
-        HMODULE hModule = GetModuleHandleA(szModule);
-        if (hModule == INVALID_HANDLE_VALUE)
-        {
-            return modinfo;
-        }
-
-        if (hModule)
-        {
-            GetModuleInformation(GetCurrentProcess(), hModule, &modinfo, sizeof(MODULEINFO));
-        }
-
-        return modinfo;
-    };
 }
