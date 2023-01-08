@@ -37,7 +37,7 @@ CModule::CModule(const std::string& svModuleName) : m_svModuleName(svModuleName)
 // Purpose: constructor
 // Input  : nModuleBase
 //-----------------------------------------------------------------------------
-CModule::CModule(uintptr_t nModuleBase) : m_pModuleBase(nModuleBase)
+CModule::CModule(const uintptr_t nModuleBase) : m_pModuleBase(nModuleBase)
 {
 	m_pDOSHeader = reinterpret_cast<IMAGE_DOS_HEADER*>(m_pModuleBase);
 	m_pNTHeaders = reinterpret_cast<IMAGE_NT_HEADERS64*>(m_pModuleBase + m_pDOSHeader->e_lfanew);
