@@ -54,8 +54,8 @@ CModule::CModule(uintptr_t nModuleBase) : m_pModuleBase(nModuleBase)
 
 	m_ExecutableCode = GetSectionByName(".text");
 	m_ExceptionTable = GetSectionByName(".pdata");
-	m_RunTimeData = GetSectionByName(".data");
-	m_ReadOnlyData = GetSectionByName(".rdata");
+	m_RunTimeData    = GetSectionByName(".data");
+	m_ReadOnlyData   = GetSectionByName(".rdata");
 }
 
 //-----------------------------------------------------------------------------
