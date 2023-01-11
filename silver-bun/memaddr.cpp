@@ -307,7 +307,7 @@ void CMemory::HookImportedFunctionAddress(const uintptr_t pImportedMethod, const
 	// Set page for current iat entry to execute n read n write.
 	VirtualProtect(reinterpret_cast<void*>(pImportedMethod), sizeof(void*), PAGE_EXECUTE_READWRITE, &oldProt);
 
-	// Set virtual method to our hook.
+	// Set method to our hook.
 	*reinterpret_cast<uintptr_t*>(pImportedMethod) = reinterpret_cast<uintptr_t>(pHookMethod);
 
 	// Restore original page.
