@@ -52,7 +52,6 @@ typedef struct _PEB_LDR_DATA
     typedef long long           INT64;
 #endif
 typedef QWORD                   PTR64;
-//typedef QWORD                 HANDLE64;
 
 //UNCOMMENT line below if you are not including windows.h
 //#define WANT_ALL_WINDOWS_H_DEFINITIONS
@@ -135,7 +134,7 @@ typedef struct _RTL_USER_PROCESS_PARAMETERS64
     BYTE                    Reserved1[16];                 //0x00
     QWORD                   Reserved2[5];                  //0x10
     UNICODE_STRING64        CurrentDirectoryPath;          //0x38
-    HANDLE64                CurrentDirectoryHandle;        //0x48
+    QWORD                   CurrentDirectoryHandle;        //0x48
     UNICODE_STRING64        DllPath;                       //0x50 
     UNICODE_STRING64        ImagePathName;                 //0x60 
     UNICODE_STRING64        CommandLine;                   //0x70 
