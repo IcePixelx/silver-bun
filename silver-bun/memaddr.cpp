@@ -262,7 +262,7 @@ std::vector<CMemory> CMemory::FindAllCallReferences(const uintptr_t sectionBase,
 //-----------------------------------------------------------------------------
 // Purpose: patch virtual method to point to a user set function
 // Input  : virtualTable - 
-//			pHookMethod - 
+//          pHookMethod - 
 //          methodIndex -
 //          ppOriginalMethod -
 // Output : void** via ppOriginalMethod
@@ -293,11 +293,11 @@ void CMemory::HookVirtualMethod(const uintptr_t virtualTable, const void* pHookM
 //-----------------------------------------------------------------------------
 // Purpose: patch iat entry to point to a user set function
 // Input  : pImportedMethod - 
-//			pHookMethod - 
+//          pHookMethod - 
 //          ppOriginalMethod -
 // Output : void** via ppOriginalMethod
 //-----------------------------------------------------------------------------
-void CMemory::HookImportedFunctionAddress(const uintptr_t pImportedMethod, const void* pHookMethod, void** ppOriginalMethod)
+void CMemory::HookImportedFunction(const uintptr_t pImportedMethod, const void* pHookMethod, void** ppOriginalMethod)
 {
 	DWORD oldProt = NULL;
 
