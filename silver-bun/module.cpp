@@ -323,7 +323,7 @@ CMemory CModule::GetExportedFunction(const std::string& svFunctionName) const
 		if (svExportFunctionName.compare(svFunctionName) == 0) // Is this our wanted exported function?
 		{
 			// Get the function ordinal. Then grab the relative virtual address of our wanted function. Then add module base address so we get the actual location.
-			return CMemory(m_pModuleBase + pAddressOfFunctions[reinterpret_cast<WORD*>(pAddressOfOrdinals)[i]]); // Return as CMemory class.
+			return CMemory(m_pModuleBase + pAddressOfFunctions[reinterpret_cast<WORD*>(pAddressOfOrdinals)[i]]).ResolveRelativeAddressSelf(0x3, 0x7).DerefSelf(); // Return as CMemory class.
 		}
 	}
 	return CMemory();
