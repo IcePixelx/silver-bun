@@ -281,7 +281,6 @@ CMemory CModule::GetVirtualMethodTable(const std::string& svTableName, const uin
 //-----------------------------------------------------------------------------
 // Purpose: get address of exported function in this module
 // Input  : *svFunctionName - 
-//          bNullTerminator - 
 // Output : CMemory
 //-----------------------------------------------------------------------------
 CMemory CModule::GetExportedFunction(const std::string& svFunctionName) const
@@ -332,8 +331,9 @@ CMemory CModule::GetExportedFunction(const std::string& svFunctionName) const
 
 //-----------------------------------------------------------------------------
 // Purpose: get address of imported function in this module
-// Input  : *svFunctionName - 
-//          bNullTerminator - 
+// Input  : *svModuleName         - 
+//          *svFunctionName       -
+//          bGetFunctionReference -
 // Output : CMemory
 //-----------------------------------------------------------------------------
 CMemory CModule::GetImportedFunction(const std::string& svModuleName, const std::string& svFunctionName, const bool bGetFunctionReference) const

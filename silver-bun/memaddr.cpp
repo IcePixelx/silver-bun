@@ -264,8 +264,8 @@ std::vector<CMemory> CMemory::FindAllCallReferences(const uintptr_t sectionBase,
 // Input  : virtualTable - 
 //			pHookMethod - 
 //          methodIndex -
-//          pOriginalMethod -
-// Output : void** via pOriginalMethod
+//          ppOriginalMethod -
+// Output : void** via ppOriginalMethod
 //-----------------------------------------------------------------------------
 void CMemory::HookVirtualMethod(const uintptr_t virtualTable, const void* pHookMethod, const ptrdiff_t methodIndex, void** ppOriginalMethod)
 {
@@ -285,6 +285,33 @@ void CMemory::HookVirtualMethod(const uintptr_t virtualTable, const void* pHookM
 
 	// Restore original page.
 	VirtualProtect(reinterpret_cast<void*>(virtualMethod), sizeof(virtualMethod), oldProt, &oldProt);
+
+	// Move original function into argument.
+	*ppOriginalMethod = reinterpret_cast<void*>(originalFunction);
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: patch iat entry to point to a user set function
+// Input  : pImportedMethod - 
+//			pHookMethod - 
+//          ppOriginalMethod -
+// Output : void** via ppOriginalMethod
+//-----------------------------------------------------------------------------
+void CMemory::HookImportedFunctionAddress(const uintptr_t pImportedMethod, const void* pHookMethod, void** ppOriginalMethod)
+{
+	DWORD oldProt = NULL;
+
+	// Preserve original function.
+	const uintptr_t originalFunction = *reinterpret_cast<uintptr_t*>(pImportedMethod);
+
+	// Set page for current iat entry to execute n read n write.
+	VirtualProtect(reinterpret_cast<void*>(pImportedMethod), sizeof(void*), PAGE_EXECUTE_READWRITE, &oldProt);
+
+	// Set virtual method to our hook.
+	*reinterpret_cast<uintptr_t*>(pImportedMethod) = reinterpret_cast<uintptr_t>(pHookMethod);
+
+	// Restore original page.
+	VirtualProtect(reinterpret_cast<void*>(pImportedMethod), sizeof(void*), oldProt, &oldProt);
 
 	// Move original function into argument.
 	*ppOriginalMethod = reinterpret_cast<void*>(originalFunction);

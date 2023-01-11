@@ -136,6 +136,7 @@ public:
 	CMemory ResolveRelativeAddressSelf(const ptrdiff_t registerOffset = 0x0, const ptrdiff_t nextInstructionOffset = 0x4);
 	std::vector<CMemory> FindAllCallReferences(const uintptr_t sectionBase, const size_t sectionSize);
 	static void HookVirtualMethod(const uintptr_t virtualTable, const void* pHookMethod, const ptrdiff_t methodIndex, void** ppOriginalMethod);
+	static void HookImportedFunctionAddress(const uintptr_t pImportedMethod, const void* pHookMethod, void** ppOriginalMethod);
 
 private:
 	uintptr_t ptr = 0;
