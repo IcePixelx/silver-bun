@@ -319,12 +319,68 @@ CMemory CModule::GetExportedFunction(const std::string& svFunctionName) const
 	for (DWORD i = 0; i < pImageExportDirectory->NumberOfFunctions; i++) // Iterate through all the functions.
 	{
 		// Get virtual relative Address of the function name. Then add module base Address to get the actual location.
-		std::string ExportFunctionName = reinterpret_cast<char*>(reinterpret_cast<DWORD*>(m_pModuleBase + pAddressOfName[i]));
+		const std::string svExportFunctionName = reinterpret_cast<char*>(reinterpret_cast<DWORD*>(m_pModuleBase + pAddressOfName[i]));
 
-		if (ExportFunctionName.compare(svFunctionName) == 0) // Is this our wanted exported function?
+		if (svExportFunctionName.compare(svFunctionName) == 0) // Is this our wanted exported function?
 		{
 			// Get the function ordinal. Then grab the relative virtual address of our wanted function. Then add module base address so we get the actual location.
 			return CMemory(m_pModuleBase + pAddressOfFunctions[reinterpret_cast<WORD*>(pAddressOfOrdinals)[i]]); // Return as CMemory class.
+		}
+	}
+	return CMemory();
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: get address of imported function in this module
+// Input  : *svFunctionName - 
+//          bNullTerminator - 
+// Output : CMemory
+//-----------------------------------------------------------------------------
+CMemory CModule::GetImportedFunction(const std::string& svModuleName, const std::string& svFunctionName, const bool bGetFunctionReference) const
+{
+	if (!m_pDOSHeader || m_pDOSHeader->e_magic != IMAGE_DOS_SIGNATURE) // Is dosHeader valid?
+		return CMemory();
+
+	if (!m_pNTHeaders || m_pNTHeaders->Signature != IMAGE_NT_SIGNATURE) // Is ntHeader valid?
+		return CMemory();
+
+	// Get the location of IMAGE_IMPORT_DESCRIPTOR for this module by adding the IMAGE_DIRECTORY_ENTRY_IMPORT relative virtual address onto our module base address.
+	IMAGE_IMPORT_DESCRIPTOR* pImageImportDescriptors = reinterpret_cast<IMAGE_IMPORT_DESCRIPTOR*>(m_pModuleBase + m_pNTHeaders->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].VirtualAddress);
+	if (!pImageImportDescriptors)
+		return CMemory();
+
+	for (IMAGE_IMPORT_DESCRIPTOR* pIID = pImageImportDescriptors; pIID->Name != 0; pIID++)
+	{
+		// Get virtual relative Address of the imported module name. Then add module base Address to get the actual location.
+		std::string svImportedModuleName = reinterpret_cast<char*>(reinterpret_cast<DWORD*>(m_pModuleBase + pIID->Name));
+
+		// Convert all characters to lower case because KERNEL32.DLL sometimes is kernel32.DLL, sometimes KERNEL32.dll.
+		std::transform(svImportedModuleName.begin(), svImportedModuleName.end(), svImportedModuleName.begin(), std::tolower);
+
+		if (svImportedModuleName.compare(svModuleName) == 0) // Is this our wanted imported module?.
+		{
+			// Original First Thunk to get function name.
+			PIMAGE_THUNK_DATA pOgFirstThunk = reinterpret_cast<IMAGE_THUNK_DATA*>(m_pModuleBase + pIID->OriginalFirstThunk);
+
+			// To get actual function address.
+			PIMAGE_THUNK_DATA pFirstThunk = reinterpret_cast<IMAGE_THUNK_DATA*>(m_pModuleBase + pIID->FirstThunk);
+			for (; pOgFirstThunk->u1.AddressOfData; ++pOgFirstThunk, ++pFirstThunk)
+			{
+				// Get image import by name.
+				const IMAGE_IMPORT_BY_NAME* pImageImportByName = reinterpret_cast<IMAGE_IMPORT_BY_NAME*>(m_pModuleBase + pOgFirstThunk->u1.AddressOfData);
+
+				// Get import function name.
+				const std::string svImportedFunctionName = pImageImportByName->Name;
+				if (svImportedFunctionName.compare(svFunctionName) == 0) // Is this our wanted imported function?
+				{
+					// Grab function address from firstThunk.
+					uintptr_t* pFunctionAddress = &pFirstThunk->u1.Function;
+
+					// Reference or address?
+					return bGetFunctionReference ? CMemory(pFunctionAddress) : CMemory(*pFunctionAddress); // Return as CMemory class.
+				}
+			}
+
 		}
 	}
 	return CMemory();

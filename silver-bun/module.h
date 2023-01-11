@@ -8,6 +8,7 @@
 #include <windows.h>
 #include <psapi.h>
 #include <intrin.h>
+#include <algorithm>
 #elif
 #pragma message("ADD PRECOMPILED HEADERS TO SILVER-BUN.")
 #endif // !USE_PRECOMPILED_HEADERS
@@ -40,6 +41,7 @@ public:
 
 	CMemory          GetVirtualMethodTable(const std::string& svTableName, const uint32_t nRefIndex = 0);
 	CMemory          GetExportedFunction(const std::string& svFunctionName) const;
+	CMemory          GetImportedFunction(const std::string& svModuleName, const std::string& svFunctionName, const bool bGetFunctionReference = false) const;
 	uintptr_t        GetModuleBase(void) const;
 	DWORD            GetModuleSize(void) const;
 	std::string      GetModuleName(void) const;
