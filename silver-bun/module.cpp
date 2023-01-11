@@ -360,10 +360,10 @@ CMemory CModule::GetImportedFunction(const std::string& svModuleName, const std:
 		if (svImportedModuleName.compare(svModuleName) == 0) // Is this our wanted imported module?.
 		{
 			// Original First Thunk to get function name.
-			PIMAGE_THUNK_DATA pOgFirstThunk = reinterpret_cast<IMAGE_THUNK_DATA*>(m_pModuleBase + pIID->OriginalFirstThunk);
+			IMAGE_THUNK_DATA* pOgFirstThunk = reinterpret_cast<IMAGE_THUNK_DATA*>(m_pModuleBase + pIID->OriginalFirstThunk);
 
 			// To get actual function address.
-			PIMAGE_THUNK_DATA pFirstThunk = reinterpret_cast<IMAGE_THUNK_DATA*>(m_pModuleBase + pIID->FirstThunk);
+			IMAGE_THUNK_DATA* pFirstThunk = reinterpret_cast<IMAGE_THUNK_DATA*>(m_pModuleBase + pIID->FirstThunk);
 			for (; pOgFirstThunk->u1.AddressOfData; ++pOgFirstThunk, ++pFirstThunk)
 			{
 				// Get image import by name.
