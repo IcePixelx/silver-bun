@@ -34,7 +34,10 @@ public:
 
 	CModule(void) = default;
 	CModule(const std::string& moduleName);
-	CModule(const uintptr_t nModuleBase);
+	CModule(const uintptr_t nModuleBase, const std::string& svModuleName);
+	void Init();
+	void LoadSections();
+
 	CMemory FindPatternSIMD(const std::string& svPattern, const ModuleSections_t* moduleSection = nullptr) const;
 	CMemory FindString(const std::string& string, const ptrdiff_t occurrence = 1, bool nullTerminator = false) const;
 	CMemory FindStringReadOnly(const std::string& svString, bool nullTerminator) const;

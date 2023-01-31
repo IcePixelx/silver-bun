@@ -14,33 +14,28 @@
 CModule::CModule(const std::string& svModuleName) : m_svModuleName(svModuleName)
 {
 	m_pModuleBase = reinterpret_cast<uintptr_t>(GetModuleHandleA(svModuleName.c_str()));
-	m_pDOSHeader  = reinterpret_cast<IMAGE_DOS_HEADER*>(m_pModuleBase);
-	m_pNTHeaders  = reinterpret_cast<IMAGE_NT_HEADERS64*>(m_pModuleBase + m_pDOSHeader->e_lfanew);
-	m_nModuleSize = static_cast<size_t>(m_pNTHeaders->OptionalHeader.SizeOfImage);
 
-	const IMAGE_SECTION_HEADER* hSection = IMAGE_FIRST_SECTION(m_pNTHeaders); // Get first image section.
-
-	for (WORD i = 0; i < m_pNTHeaders->FileHeader.NumberOfSections; i++) // Loop through the sections.
-	{
-		const IMAGE_SECTION_HEADER& hCurrentSection = hSection[i]; // Get current section.
-		m_vModuleSections.push_back(ModuleSections_t(std::string(reinterpret_cast<const char*>(hCurrentSection.Name)),
-			static_cast<uintptr_t>(m_pModuleBase + hCurrentSection.VirtualAddress), hCurrentSection.SizeOfRawData)); // Push back a struct with the section data.
-	}
-
-	m_ExecutableCode = GetSectionByName(".text");
-	m_ExceptionTable = GetSectionByName(".pdata");
-	m_RunTimeData    = GetSectionByName(".data");
-	m_ReadOnlyData   = GetSectionByName(".rdata");
+	Init();
+	LoadSections();
 }
 
 //-----------------------------------------------------------------------------
 // Purpose: constructor
 // Input  : nModuleBase
 //-----------------------------------------------------------------------------
-CModule::CModule(const uintptr_t nModuleBase) : m_pModuleBase(nModuleBase)
+CModule::CModule(const uintptr_t nModuleBase, const std::string& svModuleName) : m_svModuleName(svModuleName), m_pModuleBase(nModuleBase)
 {
-	m_pDOSHeader  = reinterpret_cast<IMAGE_DOS_HEADER*>(m_pModuleBase);
-	m_pNTHeaders  = reinterpret_cast<IMAGE_NT_HEADERS64*>(m_pModuleBase + m_pDOSHeader->e_lfanew);
+	Init();
+	LoadSections();
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: initializes module descriptors
+//-----------------------------------------------------------------------------
+void CModule::Init()
+{
+	m_pDOSHeader = reinterpret_cast<IMAGE_DOS_HEADER*>(m_pModuleBase);
+	m_pNTHeaders = reinterpret_cast<IMAGE_NT_HEADERS64*>(m_pModuleBase + m_pDOSHeader->e_lfanew);
 	m_nModuleSize = static_cast<size_t>(m_pNTHeaders->OptionalHeader.SizeOfImage);
 
 	const IMAGE_SECTION_HEADER* hSection = IMAGE_FIRST_SECTION(m_pNTHeaders); // Get first image section.
@@ -48,10 +43,16 @@ CModule::CModule(const uintptr_t nModuleBase) : m_pModuleBase(nModuleBase)
 	for (WORD i = 0; i < m_pNTHeaders->FileHeader.NumberOfSections; i++) // Loop through the sections.
 	{
 		const IMAGE_SECTION_HEADER& hCurrentSection = hSection[i]; // Get current section.
-		m_vModuleSections.push_back(ModuleSections_t(std::string(reinterpret_cast<const char*>(hCurrentSection.Name)),
+		m_vModuleSections.push_back(ModuleSections_t(reinterpret_cast<const char*>(hCurrentSection.Name),
 			static_cast<uintptr_t>(m_pModuleBase + hCurrentSection.VirtualAddress), hCurrentSection.SizeOfRawData)); // Push back a struct with the section data.
 	}
+}
 
+//-----------------------------------------------------------------------------
+// Purpose: initializes the default executable segments
+//-----------------------------------------------------------------------------
+void CModule::LoadSections()
+{
 	m_ExecutableCode = GetSectionByName(".text");
 	m_ExceptionTable = GetSectionByName(".pdata");
 	m_RunTimeData    = GetSectionByName(".data");
@@ -323,7 +324,7 @@ CMemory CModule::GetExportedFunction(const std::string& svFunctionName) const
 		if (svExportFunctionName.compare(svFunctionName) == 0) // Is this our wanted exported function?
 		{
 			// Get the function ordinal. Then grab the relative virtual address of our wanted function. Then add module base address so we get the actual location.
-			return CMemory(m_pModuleBase + pAddressOfFunctions[reinterpret_cast<WORD*>(pAddressOfOrdinals)[i]]).ResolveRelativeAddressSelf(0x3, 0x7).DerefSelf(); // Return as CMemory class.
+			return CMemory(m_pModuleBase + pAddressOfFunctions[reinterpret_cast<WORD*>(pAddressOfOrdinals)[i]]); // Return as CMemory class.
 		}
 	}
 	return CMemory();
