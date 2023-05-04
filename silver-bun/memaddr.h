@@ -6,7 +6,7 @@
 #include <vector>
 #include <windows.h>
 #include <psapi.h>
-#elif
+#else
 #pragma message("ADD PRECOMPILED HEADERS TO SILVER-BUN.")
 #endif // !USE_PRECOMPILED_HEADERS
 

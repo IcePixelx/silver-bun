@@ -9,7 +9,7 @@
 #include <psapi.h>
 #include <intrin.h>
 #include <algorithm>
-#elif
+#else
 #pragma message("ADD PRECOMPILED HEADERS TO SILVER-BUN.")
 #endif // !USE_PRECOMPILED_HEADERS
 
