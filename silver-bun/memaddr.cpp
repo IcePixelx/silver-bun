@@ -8,15 +8,15 @@
 
 //-----------------------------------------------------------------------------
 // Purpose: check array of opcodes starting from current address
-// Input  : vOpcodeArray - 
+// Input  : &vOpcodeArray - 
 // Output : true if equal, false otherwise
 //-----------------------------------------------------------------------------
-bool CMemory::CheckOpCodes(const std::vector<uint8_t> vOpcodeArray) const
+bool CMemory::CheckOpCodes(const std::vector<uint8_t>& vOpcodeArray) const
 {
 	uintptr_t ref = ptr;
 
 	// Loop forward in the ptr class member.
-	for (auto [byteAtCurrentAddress, i] = std::tuple{ uint8_t(), (size_t)0 }; i < vOpcodeArray.size(); i++, ref++)
+	for (auto [byteAtCurrentAddress, i] = std::tuple<uint8_t, size_t>{ uint8_t(), (size_t)0 }; i < vOpcodeArray.size(); i++, ref++)
 	{
 		byteAtCurrentAddress = *reinterpret_cast<uint8_t*>(ref);
 
@@ -30,9 +30,9 @@ bool CMemory::CheckOpCodes(const std::vector<uint8_t> vOpcodeArray) const
 
 //-----------------------------------------------------------------------------
 // Purpose: patch array of opcodes starting from current address
-// Input  : vOpcodeArray - 
+// Input  : &vOpcodeArray - 
 //-----------------------------------------------------------------------------
-void CMemory::Patch(const std::vector<uint8_t> vOpcodeArray) const
+void CMemory::Patch(const std::vector<uint8_t>& vOpcodeArray) const
 {
 	DWORD oldProt = NULL;
 
@@ -50,23 +50,20 @@ void CMemory::Patch(const std::vector<uint8_t> vOpcodeArray) const
 
 //-----------------------------------------------------------------------------
 // Purpose: patch string constant at current address
-// Input  : &svString - 
+// Input  : *szString - 
 //-----------------------------------------------------------------------------
-void CMemory::PatchString(const std::string& svString) const
+void CMemory::PatchString(const char* szString) const
 {
 	DWORD oldProt = NULL;
-
-	SIZE_T dwSize = svString.size();
-	const std::vector<char> bytes(svString.begin(), svString.end());
+	SIZE_T dwSize =  strlen(szString);
 
 	VirtualProtect(reinterpret_cast<void*>(ptr), dwSize, PAGE_EXECUTE_READWRITE, &oldProt); // Patch page to be able to read and write to it.
 
-	for (size_t i = 0; i < svString.size(); i++)
+	for (size_t i = 0; i < dwSize; i++)
 	{
-		*reinterpret_cast<uint8_t*>(ptr + i) = bytes[i]; // Write string to Address.
+		*reinterpret_cast<uint8_t*>(ptr + i) = szString[i]; // Write string to Address.
 	}
 
-	dwSize = svString.size();
 	VirtualProtect(reinterpret_cast<void*>(ptr), dwSize, oldProt, &oldProt); // Restore protection.
 }
 
@@ -78,12 +75,12 @@ void CMemory::PatchString(const std::string& svString) const
 //			occurrence - 
 // Output : CMemory
 //-----------------------------------------------------------------------------
-CMemory CMemory::FindPattern(const std::string& svPattern, const Direction searchDirect, const int opCodesToScan, const ptrdiff_t occurrence) const
+CMemory CMemory::FindPattern(const char* szPattern, const Direction searchDirect, const int opCodesToScan, const ptrdiff_t occurrence) const
 {
 	uint8_t* pScanBytes = reinterpret_cast<uint8_t*>(ptr); // Get the base of the module.
 
-	const std::vector<int> PatternBytes = Utils::PatternToBytes(svPattern); // Convert our pattern to a byte array.
-	const std::pair bytesInfo = std::make_pair(PatternBytes.size(), PatternBytes.data()); // Get the size and data of our bytes.
+	const std::vector<int> PatternBytes = Utils::PatternToBytes(szPattern); // Convert our pattern to a byte array.
+	const std::pair<size_t, const int*> bytesInfo = std::make_pair<size_t, const int*>(PatternBytes.size(), PatternBytes.data()); // Get the size and data of our bytes.
 	ptrdiff_t occurrences = 0;
 
 	for (long i = 01; i < opCodesToScan + bytesInfo.first; i++)
@@ -125,12 +122,12 @@ CMemory CMemory::FindPattern(const std::string& svPattern, const Direction searc
 //			occurrence - 
 // Output : CMemory
 //-----------------------------------------------------------------------------
-CMemory CMemory::FindPatternSelf(const std::string& svPattern, const Direction searchDirect, const int opCodesToScan, const ptrdiff_t occurrence)
+CMemory CMemory::FindPatternSelf(const char* szPattern, const Direction searchDirect, const int opCodesToScan, const ptrdiff_t occurrence)
 {
 	uint8_t* pScanBytes = reinterpret_cast<uint8_t*>(ptr); // Get the base of the module.
 
-	const std::vector<int> PatternBytes = Utils::PatternToBytes(svPattern); // Convert our pattern to a byte array.
-	const std::pair bytesInfo = std::make_pair(PatternBytes.size(), PatternBytes.data()); // Get the size and data of our bytes.
+	const std::vector<int> PatternBytes = Utils::PatternToBytes(szPattern); // Convert our pattern to a byte array.
+	const std::pair<size_t, const int*> bytesInfo = std::make_pair<size_t, const int*>(PatternBytes.size(), PatternBytes.data()); // Get the size and data of our bytes.
 	ptrdiff_t occurrences = 0;
 
 	for (long i = 01; i < opCodesToScan + bytesInfo.first; i++)

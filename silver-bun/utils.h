@@ -12,10 +12,10 @@
 
 namespace Utils
 {
-    std::vector<int> PatternToBytes(const std::string& svInput);
-    std::pair<std::vector<uint8_t>, std::string> PatternToMaskedBytes(const std::string& svInput);
-    std::vector<int> StringToBytes(const std::string& svInput, bool bNullTerminator);
-    std::pair<std::vector<uint8_t>, std::string> StringToMaskedBytes(const std::string& svInput, bool bNullTerminator);
+    std::vector<int> PatternToBytes(const char* szInput);
+    std::pair<std::vector<uint8_t>, std::string> PatternToMaskedBytes(const char* szInput);
+    std::vector<int> StringToBytes(const char* szInput, bool bNullTerminator);
+    std::pair<std::vector<uint8_t>, std::string> StringToMaskedBytes(const char* szInput, bool bNullTerminator);
 }
 
 typedef const unsigned char* rsig_t;
