@@ -5,13 +5,13 @@ namespace Utils
     //----------------------------------------------------------------------------------------
     // Purpose: For converting a string pattern with wildcards to an array of bytes.
     //----------------------------------------------------------------------------------------
-    std::vector<int> PatternToBytes(const std::string& svInput)
+    std::vector<int> PatternToBytes(const char* szInput)
     {
-        char* pszPatternStart = const_cast<char*>(svInput.c_str());
-        char* pszPatternEnd = pszPatternStart + strlen(svInput.c_str());
-        std::vector<int> vBytes = std::vector<int>{ };
+        const char* pszPatternStart = const_cast<char*>(szInput);
+        const char* pszPatternEnd = pszPatternStart + strlen(szInput);
+        std::vector<int> vBytes;
 
-        for (char* pszCurrentByte = pszPatternStart; pszCurrentByte < pszPatternEnd; ++pszCurrentByte)
+        for (const char* pszCurrentByte = pszPatternStart; pszCurrentByte < pszPatternEnd; ++pszCurrentByte)
         {
             if (*pszCurrentByte == '?')
             {
@@ -24,7 +24,7 @@ namespace Utils
             }
             else
             {
-                vBytes.push_back(strtoul(pszCurrentByte, &pszCurrentByte, 16));
+                vBytes.push_back(strtoul(pszCurrentByte, const_cast<char**>(&pszCurrentByte), 16));
             }
         }
         return vBytes;
@@ -33,14 +33,15 @@ namespace Utils
     //----------------------------------------------------------------------------------------
     // Purpose: For converting a string pattern with wildcards to an array of bytes and mask.
     //----------------------------------------------------------------------------------------
-    std::pair<std::vector<uint8_t>, std::string> PatternToMaskedBytes(const std::string& svInput)
+    std::pair<std::vector<uint8_t>, std::string> PatternToMaskedBytes(const char* szInput)
     {
-        char* pszPatternStart = const_cast<char*>(svInput.c_str());
-        char* pszPatternEnd = pszPatternStart + strlen(svInput.c_str());
-        std::vector<uint8_t> vBytes = std::vector<uint8_t>{ };
-        std::string svMask = std::string();
+        const char* pszPatternStart = const_cast<char*>(szInput);
+        const char* pszPatternEnd = pszPatternStart + strlen(szInput);
 
-        for (char* pszCurrentByte = pszPatternStart; pszCurrentByte < pszPatternEnd; ++pszCurrentByte)
+        std::vector<uint8_t> vBytes;
+        std::string svMask;
+
+        for (const char* pszCurrentByte = pszPatternStart; pszCurrentByte < pszPatternEnd; ++pszCurrentByte)
         {
             if (*pszCurrentByte == '?')
             {
@@ -50,12 +51,12 @@ namespace Utils
                     ++pszCurrentByte; // Skip double wildcard.
                 }
                 vBytes.push_back(0); // Push the byte back as invalid.
-                svMask.append("?");
+                svMask += '?';
             }
             else
             {
-                vBytes.push_back(strtoul(pszCurrentByte, &pszCurrentByte, 16));
-                svMask.append("x");
+                vBytes.push_back(uint8_t(strtoul(pszCurrentByte, const_cast<char**>(&pszCurrentByte), 16)));
+                svMask += 'x';
             }
         }
         return make_pair(vBytes, svMask);
@@ -64,13 +65,13 @@ namespace Utils
     //----------------------------------------------------------------------------------------
     // Purpose: For converting a string to an array of bytes.
     //----------------------------------------------------------------------------------------
-    std::vector<int> StringToBytes(const std::string& svInput, bool bNullTerminator)
+    std::vector<int> StringToBytes(const char* szInput, bool bNullTerminator)
     {
-        char* pszStringStart = const_cast<char*>(svInput.c_str());
-        char* pszStringEnd = pszStringStart + strlen(svInput.c_str());
-        std::vector<int> vBytes = std::vector<int>{ };
+        const char* pszStringStart = const_cast<char*>(szInput);
+        const char* pszStringEnd = pszStringStart + strlen(szInput);
+        std::vector<int> vBytes;
 
-        for (char* pszCurrentByte = pszStringStart; pszCurrentByte < pszStringEnd; ++pszCurrentByte)
+        for (const char* pszCurrentByte = pszStringStart; pszCurrentByte < pszStringEnd; ++pszCurrentByte)
         {
             // Dereference character and push back the byte.
             vBytes.push_back(*pszCurrentByte);
@@ -78,7 +79,7 @@ namespace Utils
 
         if (bNullTerminator)
         {
-            vBytes.push_back(0x0);
+            vBytes.push_back('\0');
         }
         return vBytes;
     };
@@ -86,24 +87,24 @@ namespace Utils
     //----------------------------------------------------------------------------------------
     // Purpose: For converting a string to an array of masked bytes.
     //----------------------------------------------------------------------------------------
-    std::pair<std::vector<uint8_t>, std::string> StringToMaskedBytes(const std::string& svInput, bool bNullTerminator)
+    std::pair<std::vector<uint8_t>, std::string> StringToMaskedBytes(const char* szInput, bool bNullTerminator)
     {
-        char* pszStringStart = const_cast<char*>(svInput.c_str());
-        char* pszStringEnd = pszStringStart + strlen(svInput.c_str());
-        std::vector<uint8_t> vBytes = std::vector<uint8_t>{ };
-        std::string svMask = std::string();
+        const char* pszStringStart = const_cast<char*>(szInput);
+        const char* pszStringEnd = pszStringStart + strlen(szInput);
+        std::vector<uint8_t> vBytes;
+        std::string svMask;
 
-        for (char* pszCurrentByte = pszStringStart; pszCurrentByte < pszStringEnd; ++pszCurrentByte)
+        for (const char* pszCurrentByte = pszStringStart; pszCurrentByte < pszStringEnd; ++pszCurrentByte)
         {
             // Dereference character and push back the byte.
             vBytes.push_back(*pszCurrentByte);
-            svMask.append("x");
+            svMask += 'x';
         }
 
         if (bNullTerminator)
         {
             vBytes.push_back(0x0);
-            svMask.append("x");
+            svMask += 'x';
         }
         return make_pair(vBytes, svMask);
     };
