@@ -5,7 +5,12 @@
 //===========================================================================//
 #include "module.h"
 #include "utils.h"
+
+#if _WIN64 
 #include "tebpeb64.h"
+#else
+#include "Windows.h"
+#endif // #if _WIN64 
 
 //-----------------------------------------------------------------------------
 // Purpose: constructor
@@ -358,7 +363,7 @@ CMemory CModule::GetImportedFunction(const char* szModuleName, const char* szFun
 		// Get virtual relative Address of the imported module name. Then add module base Address to get the actual location.
 		const char* szImportedModuleName = reinterpret_cast<char*>(reinterpret_cast<DWORD*>(m_pModuleBase + pIID->Name));
 
-		if (stricmp(szImportedModuleName, szModuleName) == 0) // Is this our wanted imported module?.
+		if (_stricmp(szImportedModuleName, szModuleName) == 0) // Is this our wanted imported module?.
 		{
 			// Original First Thunk to get function name.
 			IMAGE_THUNK_DATA* pOgFirstThunk = reinterpret_cast<IMAGE_THUNK_DATA*>(m_pModuleBase + pIID->OriginalFirstThunk);
@@ -373,7 +378,11 @@ CMemory CModule::GetImportedFunction(const char* szModuleName, const char* szFun
 				if (strcmp(pImageImportByName->Name, szFunctionName) == 0) // Is this our wanted imported function?
 				{
 					// Grab function address from firstThunk.
+#if _WIN64
 					uintptr_t* pFunctionAddress = &pFirstThunk->u1.Function;
+#else
+					uintptr_t* pFunctionAddress = reinterpret_cast<uintptr_t*>(&pFirstThunk->u1.Function);
+#endif // #if _WIN64
 
 					// Reference or address?
 					return bGetFunctionReference ? CMemory(pFunctionAddress) : CMemory(*pFunctionAddress); // Return as CMemory class.
@@ -453,6 +462,7 @@ CModule::ModuleSections_t CModule::GetSectionByName(const char* szSectionName) c
 	return ModuleSections_t();
 }
 
+#if _WIN64
 //-----------------------------------------------------------------------------
 // Purpose: unlink module from peb
 //-----------------------------------------------------------------------------
@@ -480,3 +490,4 @@ void CModule::UnlinkFromPEB() const // Disclaimer: This does not bypass GetMappe
 	}
 #undef UNLINK_FROM_PEB
 }
+#endif // #if _WIN64 

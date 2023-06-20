@@ -46,13 +46,15 @@ public:
 	CMemory          GetExportedFunction(const char* szFunctionName) const;
 	ModuleSections_t GetSectionByName(const char* szSectionName) const;
 
-	inline const vector<CModule::ModuleSections_t>& GetSections() const { return m_ModuleSections; }
+	inline const std::vector<CModule::ModuleSections_t>& GetSections() const { return m_ModuleSections; }
 	inline uintptr_t     GetModuleBase(void) const { return m_pModuleBase; }
 	inline DWORD         GetModuleSize(void) const { return m_nModuleSize; }
-	inline const string& GetModuleName(void) const { return m_ModuleName; }
+	inline const std::string& GetModuleName(void) const { return m_ModuleName; }
 	inline uintptr_t     GetRVA(const uintptr_t nAddress) const { return (nAddress - GetModuleBase()); }
 
+#if _WIN64 
 	void             UnlinkFromPEB(void) const;
+#endif // #if _WIN64 
 
 	IMAGE_NT_HEADERS64*      m_pNTHeaders;
 	IMAGE_DOS_HEADER*        m_pDOSHeader;
