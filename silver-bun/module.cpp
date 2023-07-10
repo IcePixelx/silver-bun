@@ -44,7 +44,7 @@ CModule::CModule(const char* szModuleName, const uintptr_t nModuleBase)
 void CModule::Init()
 {
 	m_pDOSHeader = reinterpret_cast<IMAGE_DOS_HEADER*>(m_pModuleBase);
-	m_pNTHeaders = reinterpret_cast<IMAGE_NT_HEADERS64*>(m_pModuleBase + m_pDOSHeader->e_lfanew);
+	m_pNTHeaders = reinterpret_cast<decltype(m_pNTHeaders)>(m_pModuleBase + m_pDOSHeader->e_lfanew);
 	m_nModuleSize = static_cast<size_t>(m_pNTHeaders->OptionalHeader.SizeOfImage);
 
 	const IMAGE_SECTION_HEADER* hSection = IMAGE_FIRST_SECTION(m_pNTHeaders); // Get first image section.

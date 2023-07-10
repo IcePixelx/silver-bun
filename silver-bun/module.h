@@ -56,7 +56,11 @@ public:
 	void             UnlinkFromPEB(void) const;
 #endif // #if _WIN64 
 
+#if _WIN64 
 	IMAGE_NT_HEADERS64*      m_pNTHeaders;
+#else
+	IMAGE_NT_HEADERS32*      m_pNTHeaders;
+#endif // #if _WIN64 
 	IMAGE_DOS_HEADER*        m_pDOSHeader;
 
 	ModuleSections_t         m_ExecutableCode;
