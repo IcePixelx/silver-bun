@@ -432,7 +432,7 @@ CMemory CModule::GetExportedFunction(const char* szFunctionName) const
 	if (!pAddressOfOrdinals)
 		return CMemory();
 
-	for (DWORD i = 0; i < pImageExportDirectory->NumberOfFunctions; i++) // Iterate through all the functions.
+	for (DWORD i = 0; i < pImageExportDirectory->NumberOfNames; i++) // Iterate through all the functions.
 	{
 		// Get virtual relative Address of the function name. Then add module base Address to get the actual location.
 		const char* ExportFunctionName = reinterpret_cast<char*>(reinterpret_cast<DWORD*>(m_pModuleBase + pAddressOfName[i]));
