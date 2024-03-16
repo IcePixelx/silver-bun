@@ -7,6 +7,61 @@
 #include <intrin.h>
 #endif // #if !defined( SILVER_BUN_CPP_HDRS )
 
+#if ((defined(_MSVC_LANG) && _MSVC_LANG >= 201703L) || __cplusplus >= 201703L) // Check for C++17 or later.
+#define CUSTOM_VIRTUAL_FUNC
+#endif // #if ((defined(_MSVC_LANG) && _MSVC_LANG >= 201703L) || __cplusplus >= 201703L)
+
+namespace silverbun
+{
+#if defined ( CUSTOM_VIRTUAL_FUNC )
+	typedef bool (*ProtectVirtualMemory)(void* const, const size_t, const uint32_t, uint32_t*);
+	typedef size_t(*QueryVirtualMemory)(const void* const, MEMORY_BASIC_INFORMATION*, size_t);
+
+	inline ProtectVirtualMemory pPVM = nullptr;
+	inline QueryVirtualMemory pQVM = nullptr;
+
+	template<class T> void SetPVM(T const pFunc)
+	{
+		pPVM = reinterpret_cast<ProtectVirtualMemory>(pFunc);
+	}
+
+	template<class T> void SetQVM(T const pFunc)
+	{
+		pQVM = reinterpret_cast<QueryVirtualMemory>(pFunc);
+	}
+
+	bool CallPVM(void* const pAddress, const size_t nSize, const uint32_t nProtect, uint32_t* pOldProtect)
+	{
+		return pPVM != nullptr ? pPVM(pAddress, nSize, nProtect, pOldProtect) : VirtualProtect(pAddress, nSize, nProtect, reinterpret_cast<DWORD*>(pOldProtect));
+	}
+
+	bool CallQVM(const void* const pAddress, MEMORY_BASIC_INFORMATION* pBuf, const uint32_t nLen)
+	{
+		return pQVM != nullptr ? pQVM(pAddress, pBuf, nLen) : VirtualQuery(pAddress, pBuf, nLen);
+	}
+#else
+	template<class T> void SetPVM(T const pFunc)
+	{
+		return;
+	}
+
+	template<class T> void SetQVM(T const pFunc)
+	{
+		return;
+	}
+
+	bool CallPVM(void* const pAddress, const size_t nSize, const uint32_t nProtect, uint32_t* pOldProtect)
+	{
+		return VirtualProtect(pAddress, nSize, nProtect, reinterpret_cast<DWORD*>(pOldProtect));
+	}
+
+	bool CallQVM(const void* const pAddress, MEMORY_BASIC_INFORMATION* pBuf, const uint32_t nLen)
+	{
+		return VirtualQuery(pAddress, pBuf, nLen);
+	}
+#endif // CUSTOM_VIRTUAL_FUNC
+}
+
 typedef const unsigned char* rsig_t;
 
 class CMemory
@@ -154,7 +209,6 @@ public:
 	{
 		uintptr_t ref = ptr;
 
-		// Loop forward in the ptr class member.
 		for (auto [byteAtCurrentAddress, i] = std::tuple<uint8_t, size_t>{ uint8_t(), (size_t)0 }; i < vOpcodeArray.size(); i++, ref++)
 		{
 			byteAtCurrentAddress = *reinterpret_cast<uint8_t*>(ref);
@@ -169,41 +223,40 @@ public:
 
 	void Patch(const std::vector<uint8_t>& vOpcodeArray) const
 	{
-		DWORD oldProt = NULL;
+		uint32_t nOldProt = 0u;
 
-		SIZE_T dwSize = vOpcodeArray.size();
-		VirtualProtect(reinterpret_cast<void*>(ptr), dwSize, PAGE_EXECUTE_READWRITE, &oldProt); // Patch page to be able to read and write to it.
+		size_t nSize = vOpcodeArray.size();
+		silverbun::CallPVM(reinterpret_cast<void*>(ptr), nSize, PAGE_EXECUTE_READWRITE, &nOldProt); // Patch page to be able to read and write to it.
 
 		for (size_t i = 0; i < vOpcodeArray.size(); i++)
 		{
-			*reinterpret_cast<uint8_t*>(ptr + i) = vOpcodeArray[i]; // Write opcodes to Address.
+			*reinterpret_cast<uint8_t*>(ptr + i) = vOpcodeArray[i];
 		}
 
-		dwSize = vOpcodeArray.size();
-		VirtualProtect(reinterpret_cast<void*>(ptr), dwSize, oldProt, &oldProt); // Restore protection.
+		silverbun::CallPVM(reinterpret_cast<void*>(ptr), nSize, nOldProt, &nOldProt);
 	}
 
 	void PatchString(const char* const szString) const
 	{
-		DWORD oldProt = NULL;
-		SIZE_T dwSize = strlen(szString);
+		uint32_t nOldProt = 0u;
+		size_t nSize = strlen(szString);
 
-		VirtualProtect(reinterpret_cast<void*>(ptr), dwSize, PAGE_EXECUTE_READWRITE, &oldProt); // Patch page to be able to read and write to it.
+		silverbun::CallPVM(reinterpret_cast<void*>(ptr), nSize, PAGE_EXECUTE_READWRITE, &nOldProt); // Patch page to be able to read and write to it.
 
-		for (SIZE_T i = 0; i < dwSize; i++)
+		for (SIZE_T i = 0; i < nSize; i++)
 		{
-			*reinterpret_cast<uint8_t*>(ptr + i) = szString[i]; // Write string to Address.
+			*reinterpret_cast<uint8_t*>(ptr + i) = szString[i];
 		}
 
-		VirtualProtect(reinterpret_cast<void*>(ptr), dwSize, oldProt, &oldProt); // Restore protection.
+		silverbun::CallPVM(reinterpret_cast<void*>(ptr), nSize, nOldProt, &nOldProt);
 	}
 
 	CMemory FindPattern(const char* const szPattern, const Direction searchDirect = Direction::DOWN, const int opCodesToScan = 512, const ptrdiff_t nOccurences = 1) const
 	{
-		uint8_t* pScanBytes = reinterpret_cast<uint8_t*>(ptr); // Get the base of the module.
+		const uint8_t* const pScanBytes = reinterpret_cast<uint8_t*>(ptr);
 
-		const std::vector<int> PatternBytes = PatternToBytes(szPattern); // Convert our pattern to a byte array.
-		const std::pair<size_t, const int*> bytesInfo = std::make_pair<size_t, const int*>(PatternBytes.size(), PatternBytes.data()); // Get the size and data of our bytes.
+		const std::vector<int> PatternBytes = PatternToBytes(szPattern);
+		const std::pair<size_t, const int*> bytesInfo = std::make_pair<size_t, const int*>(PatternBytes.size(), PatternBytes.data());
 		ptrdiff_t occurrences = 0;
 
 		for (long i = 01; i < opCodesToScan + bytesInfo.first; i++)
@@ -215,7 +268,7 @@ public:
 			{
 				// If either the current byte equals to the byte in our pattern or our current byte in the pattern is a wildcard
 				// our if clause will be false.
-				uint8_t* const pCurrentAddr = (pScanBytes + nMemOffset + j);
+				const uint8_t* const pCurrentAddr = (pScanBytes + nMemOffset + j);
 				_mm_prefetch(reinterpret_cast<const char*>(pCurrentAddr + 64), _MM_HINT_T0); // precache some data in L1.
 				if (*pCurrentAddr != bytesInfo.second[j] && bytesInfo.second[j] != -1)
 				{
@@ -239,10 +292,10 @@ public:
 
 	CMemory FindPatternSelf(const char* const szPattern, const Direction searchDirect = Direction::DOWN, const int opCodesToScan = 512, const ptrdiff_t occurrence = 1)
 	{
-		uint8_t* const pScanBytes = reinterpret_cast<uint8_t*>(ptr); // Get the base of the module.
+		const uint8_t* const pScanBytes = reinterpret_cast<uint8_t*>(ptr);
 
 		const std::vector<int> PatternBytes = PatternToBytes(szPattern); // Convert our pattern to a byte array.
-		const std::pair<size_t, const int*> bytesInfo = std::make_pair<size_t, const int*>(PatternBytes.size(), PatternBytes.data()); // Get the size and data of our bytes.
+		const std::pair<size_t, const int*> bytesInfo = std::make_pair<size_t, const int*>(PatternBytes.size(), PatternBytes.data());
 		ptrdiff_t occurrences = 0;
 
 		for (long i = 01; i < opCodesToScan + bytesInfo.first; i++)
@@ -254,7 +307,7 @@ public:
 			{
 				// If either the current byte equals to the byte in our pattern or our current byte in the pattern is a wildcard
 				// our if clause will be false.
-				uint8_t* const pCurrentAddr = (pScanBytes + nMemOffset + j);
+				const uint8_t* const pCurrentAddr = (pScanBytes + nMemOffset + j);
 				_mm_prefetch(reinterpret_cast<const char*>(pCurrentAddr + 64), _MM_HINT_T0); // precache some data in L1.
 				if (*pCurrentAddr != bytesInfo.second[j] && bytesInfo.second[j] != -1)
 				{
@@ -301,37 +354,36 @@ public:
 
 	static void HookVirtualMethod(const uintptr_t virtualTable, const void* const pHookMethod, const ptrdiff_t methodIndex, void** const ppOriginalMethod)
 	{
-		DWORD oldProt = 0u;
+		uint32_t nOldProt = 0u;
 
 		// Calculate delta to next virtual method.
 		const uintptr_t virtualMethod = virtualTable + (methodIndex * sizeof(ptrdiff_t));
-
 		const uintptr_t originalFunction = *reinterpret_cast<uintptr_t*>(virtualMethod);
 
 		// Set page for current virtual method to execute n read n write so we can actually hook it.
-		VirtualProtect(reinterpret_cast<void*>(virtualMethod), sizeof(virtualMethod), PAGE_EXECUTE_READWRITE, &oldProt);
+		silverbun::CallPVM(reinterpret_cast<void*>(virtualMethod), sizeof(virtualMethod), PAGE_EXECUTE_READWRITE, &nOldProt);
 
 		// Patch virtual method to our hook.
 		*reinterpret_cast<uintptr_t*>(virtualMethod) = reinterpret_cast<uintptr_t>(pHookMethod);
 
-		VirtualProtect(reinterpret_cast<void*>(virtualMethod), sizeof(virtualMethod), oldProt, &oldProt);
+		silverbun::CallPVM(reinterpret_cast<void*>(virtualMethod), sizeof(virtualMethod), nOldProt, &nOldProt);
 
 		*ppOriginalMethod = reinterpret_cast<void*>(originalFunction);
 	}
 
 	static void HookImportedFunction(const uintptr_t pImportedMethod, const void* const pHookMethod, void** const ppOriginalMethod)
 	{
-		DWORD oldProt = 0u;
+		uint32_t nOldProt = 0u;
 
 		const uintptr_t originalFunction = *reinterpret_cast<uintptr_t*>(pImportedMethod);
 
 		// Set page for current iat entry to execute n read n write so we can actually hook it.
-		VirtualProtect(reinterpret_cast<void*>(pImportedMethod), sizeof(void*), PAGE_EXECUTE_READWRITE, &oldProt);
+		silverbun::CallPVM(reinterpret_cast<void*>(pImportedMethod), sizeof(void*), PAGE_EXECUTE_READWRITE, &nOldProt);
 
 		// Patch method to our hook.
 		*reinterpret_cast<uintptr_t*>(pImportedMethod) = reinterpret_cast<uintptr_t>(pHookMethod);
 
-		VirtualProtect(reinterpret_cast<void*>(pImportedMethod), sizeof(void*), oldProt, &oldProt);
+		silverbun::CallPVM(reinterpret_cast<void*>(pImportedMethod), sizeof(uintptr_t), nOldProt, &nOldProt);
 
 		*ppOriginalMethod = reinterpret_cast<void*>(originalFunction);
 	}
@@ -691,7 +743,7 @@ public:
 		{
 			MEMORY_BASIC_INFORMATION membInfo = { 0 };
 
-			VirtualQuery(address, &membInfo, sizeof(membInfo));
+			silverbun::CallQVM(address, &membInfo, sizeof(membInfo));
 
 			if (membInfo.AllocationBase && membInfo.BaseAddress && membInfo.State == MEM_COMMIT && !(membInfo.Protect & PAGE_GUARD) && membInfo.Protect != PAGE_NOACCESS)
 			{
