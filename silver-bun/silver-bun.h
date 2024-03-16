@@ -11,6 +11,8 @@ typedef const unsigned char* rsig_t;
 
 class CMemory
 {
+private:
+	uintptr_t ptr;
 public:
 	enum class Direction : int
 	{
@@ -119,6 +121,35 @@ public:
 		return *this;
 	}
 
+	inline CMemory FollowNearCall(const ptrdiff_t opcodeOffset = 0x1, const ptrdiff_t nextInstructionOffset = 0x5) const
+	{
+		return ResolveRelativeAddress(opcodeOffset, nextInstructionOffset);
+	}
+
+	inline CMemory FollowNearCallSelf(const ptrdiff_t opcodeOffset = 0x1, const ptrdiff_t nextInstructionOffset = 0x5)
+	{
+		return ResolveRelativeAddressSelf(opcodeOffset, nextInstructionOffset);
+	}
+
+	inline CMemory ResolveRelativeAddress(const ptrdiff_t registerOffset = 0x0, const ptrdiff_t nextInstructionOffset = 0x4) const
+	{
+		const uintptr_t skipRegister = ptr + registerOffset;
+		const int32_t relativeAddress = *reinterpret_cast<int32_t*>(skipRegister);
+
+		const uintptr_t nextInstruction = ptr + nextInstructionOffset;
+		return CMemory(nextInstruction + relativeAddress);
+	}
+
+	inline CMemory ResolveRelativeAddressSelf(const ptrdiff_t registerOffset = 0x0, const ptrdiff_t nextInstructionOffset = 0x4)
+	{
+		const uintptr_t skipRegister = ptr + registerOffset;
+		const int32_t relativeAddress = *reinterpret_cast<int32_t*>(skipRegister);
+
+		const uintptr_t nextInstruction = ptr + nextInstructionOffset;
+		ptr = nextInstruction + relativeAddress;
+		return *this;
+	}
+
 	bool CheckOpCodes(const std::vector<uint8_t>& vOpcodeArray) const
 	{
 		uintptr_t ref = ptr;
@@ -152,7 +183,7 @@ public:
 		VirtualProtect(reinterpret_cast<void*>(ptr), dwSize, oldProt, &oldProt); // Restore protection.
 	}
 
-	void PatchString(const char* szString) const
+	void PatchString(const char* const szString) const
 	{
 		DWORD oldProt = NULL;
 		SIZE_T dwSize = strlen(szString);
@@ -167,7 +198,7 @@ public:
 		VirtualProtect(reinterpret_cast<void*>(ptr), dwSize, oldProt, &oldProt); // Restore protection.
 	}
 
-	CMemory FindPattern(const char* szPattern, const Direction searchDirect = Direction::DOWN, const int opCodesToScan = 512, const ptrdiff_t nOccurences = 1) const
+	CMemory FindPattern(const char* const szPattern, const Direction searchDirect = Direction::DOWN, const int opCodesToScan = 512, const ptrdiff_t nOccurences = 1) const
 	{
 		uint8_t* pScanBytes = reinterpret_cast<uint8_t*>(ptr); // Get the base of the module.
 
@@ -184,9 +215,9 @@ public:
 			{
 				// If either the current byte equals to the byte in our pattern or our current byte in the pattern is a wildcard
 				// our if clause will be false.
-				uint8_t currentByte = *(pScanBytes + nMemOffset + j);
-				_mm_prefetch(reinterpret_cast<const CHAR*>(static_cast<int64_t>(currentByte + nMemOffset + 64)), _MM_HINT_T0); // precache some data in L1.
-				if (currentByte != bytesInfo.second[j] && bytesInfo.second[j] != -1)
+				uint8_t* const pCurrentAddr = (pScanBytes + nMemOffset + j);
+				_mm_prefetch(reinterpret_cast<const char*>(pCurrentAddr + 64), _MM_HINT_T0); // precache some data in L1.
+				if (*pCurrentAddr != bytesInfo.second[j] && bytesInfo.second[j] != -1)
 				{
 					bFound = false;
 					break;
@@ -206,9 +237,9 @@ public:
 		return CMemory();
 	}
 
-	CMemory FindPatternSelf(const char* szPattern, const Direction searchDirect = Direction::DOWN, const int opCodesToScan = 512, const ptrdiff_t occurrence = 1)
+	CMemory FindPatternSelf(const char* const szPattern, const Direction searchDirect = Direction::DOWN, const int opCodesToScan = 512, const ptrdiff_t occurrence = 1)
 	{
-		uint8_t* pScanBytes = reinterpret_cast<uint8_t*>(ptr); // Get the base of the module.
+		uint8_t* const pScanBytes = reinterpret_cast<uint8_t*>(ptr); // Get the base of the module.
 
 		const std::vector<int> PatternBytes = PatternToBytes(szPattern); // Convert our pattern to a byte array.
 		const std::pair<size_t, const int*> bytesInfo = std::make_pair<size_t, const int*>(PatternBytes.size(), PatternBytes.data()); // Get the size and data of our bytes.
@@ -223,9 +254,9 @@ public:
 			{
 				// If either the current byte equals to the byte in our pattern or our current byte in the pattern is a wildcard
 				// our if clause will be false.
-				uint8_t currentByte = *(pScanBytes + nMemOffset + j);
-				_mm_prefetch(reinterpret_cast<const CHAR*>(static_cast<int64_t>(currentByte + nMemOffset + 64)), _MM_HINT_T0); // precache some data in L1.
-				if (currentByte != bytesInfo.second[j] && bytesInfo.second[j] != -1)
+				uint8_t* const pCurrentAddr = (pScanBytes + nMemOffset + j);
+				_mm_prefetch(reinterpret_cast<const char*>(pCurrentAddr + 64), _MM_HINT_T0); // precache some data in L1.
+				if (*pCurrentAddr != bytesInfo.second[j] && bytesInfo.second[j] != -1)
 				{
 					bFound = false;
 					break;
@@ -266,35 +297,6 @@ public:
 		}
 
 		return referencesInfo;
-	}
-
-	inline CMemory FollowNearCall(const ptrdiff_t opcodeOffset = 0x1, const ptrdiff_t nextInstructionOffset = 0x5) const
-	{
-		return ResolveRelativeAddress(opcodeOffset, nextInstructionOffset);
-	}
-
-	inline CMemory FollowNearCallSelf(const ptrdiff_t opcodeOffset = 0x1, const ptrdiff_t nextInstructionOffset = 0x5)
-	{
-		return ResolveRelativeAddressSelf(opcodeOffset, nextInstructionOffset);
-	}
-
-	inline CMemory ResolveRelativeAddress(const ptrdiff_t registerOffset = 0x0, const ptrdiff_t nextInstructionOffset = 0x4) const
-	{
-		const uintptr_t skipRegister = ptr + registerOffset;
-		const int32_t relativeAddress = *reinterpret_cast<int32_t*>(skipRegister);
-
-		const uintptr_t nextInstruction = ptr + nextInstructionOffset;
-		return CMemory(nextInstruction + relativeAddress);
-	}
-
-	inline CMemory ResolveRelativeAddressSelf(const ptrdiff_t registerOffset = 0x0, const ptrdiff_t nextInstructionOffset = 0x4)
-	{
-		const uintptr_t skipRegister = ptr + registerOffset;
-		const int32_t relativeAddress = *reinterpret_cast<int32_t*>(skipRegister);
-
-		const uintptr_t nextInstruction = ptr + nextInstructionOffset;
-		ptr = nextInstruction + relativeAddress;
-		return *this;
 	}
 
 	static void HookVirtualMethod(const uintptr_t virtualTable, const void* const pHookMethod, const ptrdiff_t methodIndex, void** const ppOriginalMethod)
@@ -409,7 +411,7 @@ public:
 		return vBytes;
 	};
 
-	static std::pair<std::vector<uint8_t>, std::string> StringToMaskedBytes(const char* szInput, bool bNullTerminator)
+	static std::pair<std::vector<uint8_t>, std::string> StringToMaskedBytes(const char* const szInput, bool bNullTerminator)
 	{
 		const char* pszStringStart = const_cast<char*>(szInput);
 		const char* pszStringEnd = pszStringStart + strlen(szInput);
@@ -430,9 +432,6 @@ public:
 		}
 		return make_pair(vBytes, svMask);
 	};
-
-private:
-	uintptr_t ptr;
 };
 
 class CModule
@@ -450,18 +449,46 @@ public:
 	};
 
 	CModule(void) = default;
-	CModule(const char* const szModuleName) : m_ModuleName(szModuleName)
+	CModule(const char* const szModuleName)
 	{
+		// We need a module name here, abort if null.
+		strcpy_s(m_ModuleName, szModuleName);
+		if (m_ModuleName[0] == '\0')
+			abort();
+
 		m_pModuleBase = reinterpret_cast<uintptr_t>(GetModuleHandleA(szModuleName));
 
 		Init();
 		LoadSections(".text", ".pdata", ".data", ".rdata");
 	}
 
-	CModule(const char* const szModuleName, const uintptr_t nModuleBase) : m_ModuleName(szModuleName), m_pModuleBase(nModuleBase)
+	CModule(const char* const szModuleName, const char* const szExecuteable, const char* const szExeception, const char* const szRunTime, const char* const szReadOnly)
 	{
+		// Same as above.
+		strcpy_s(m_ModuleName, szModuleName);
+		if (m_ModuleName[0] == '\0')
+			abort();
+
+		m_pModuleBase = reinterpret_cast<uintptr_t>(GetModuleHandleA(szModuleName));
+
+		Init();
+		LoadSections(szExecuteable, szExeception, szRunTime, szReadOnly);
+	}
+
+	CModule(const char* const szModuleName, const uintptr_t nModuleBase) : m_pModuleBase(nModuleBase)
+	{
+		strcpy_s(m_ModuleName, szModuleName);
+
 		Init();
 		LoadSections(".text", ".pdata", ".data", ".rdata");
+	}
+
+	CModule(const char* const szModuleName, const uintptr_t nModuleBase, const char* const szExecuteable, const char* const szExeception, const char* const szRunTime, const char* const szReadOnly) : m_pModuleBase(nModuleBase)
+	{
+		strcpy_s(m_ModuleName, szModuleName);
+
+		Init();
+		LoadSections(szExecuteable, szExeception, szRunTime, szReadOnly);
 	}
 
 	~CModule()
@@ -491,13 +518,14 @@ public:
 				const IMAGE_SECTION_HEADER* const pCurrentSection = &pFirstSection[i];
 
 				ModuleSections_t* const pSection = &m_ModuleSections[i];
-				pSection->m_SectionName = reinterpret_cast<const char* const>(pCurrentSection->Name);
+				pSection->m_SectionName = reinterpret_cast<const char* const>(pCurrentSection->Name); // Should never move, getting a pointer here will do the trick.
 				pSection->m_pSectionBase = static_cast<uintptr_t>(m_pModuleBase + pCurrentSection->VirtualAddress);
 				pSection->m_nSectionSize = pCurrentSection->Misc.VirtualSize;
 			}
 		}
 	}
 
+	// In case you are facing custom section names, just call this.
 	void LoadSections(const char* const szExecuteable, const char* const szExeception, const char* const szRunTime, const char* const szReadOnly)
 	{
 		m_ExecutableCode = GetSectionByName(szExecuteable);
@@ -522,7 +550,7 @@ public:
 
 		size_t nOccurrenceCount = 0u;
 		int nMasks[64]; // 64*16 = enough masks for 1024 bytes.
-		const int iNumMasks = static_cast<int>(ceil(static_cast<float>(nMaskLen) / 16.f));
+		const int iNumMasks = static_cast<int>(nMaskLen + 15) / 16;
 
 		memset(nMasks, '\0', iNumMasks * sizeof(int));
 		for (intptr_t i = 0; i < iNumMasks; ++i)
@@ -700,7 +728,7 @@ public:
 		return CMemory();
 	}
 
-	CMemory GetVirtualMethodTable(const char* const szTableName, const size_t nRefIndex = 0)
+	CMemory GetVirtualMethodTable(const char* const szTableName, const size_t nRefIndex = 0) const
 	{
 		if (!m_ReadOnlyData->IsSectionValid())
 			return CMemory();
@@ -764,11 +792,11 @@ public:
 					if (_stricmp(pImageImportByName->Name, szFunctionName) == 0)
 					{
 						// Grab function address from firstThunk.
-					#if _WIN64
+					#if defined( _WIN64 )
 						uintptr_t* pFunctionAddress = &pFirstThunk->u1.Function;
 					#else
 						uintptr_t* pFunctionAddress = reinterpret_cast<uintptr_t*>(&pFirstThunk->u1.Function);
-					#endif // #if _WIN64
+					#endif // #if defined( _WIN64 
 
 						// Reference or address?
 						return bGetFunctionReference ? CMemory(pFunctionAddress) : CMemory(*pFunctionAddress);
@@ -824,19 +852,24 @@ public:
 
 		return nullptr;
 	}
-
-	inline uintptr_t GetModuleBase(void) const { return m_pModuleBase; }
-	inline DWORD GetModuleSize(void) const { return m_nModuleSize; }
-	inline const std::string& GetModuleName(void) const { return m_ModuleName; }
-
 	inline ModuleSections_t* const GetSections() const { return m_ModuleSections; }
+	inline ModuleSections_t* const GetExecuteableSection() const { return m_ExecutableCode; };
+	inline ModuleSections_t* const GetExceptionTableSection() const { return m_ExceptionTable; };
+	inline ModuleSections_t* const GetRunTimeDataSection() const { return m_RunTimeData; };
+	inline ModuleSections_t* const GetReadOnlyDataSection() const { return m_ReadOnlyData; };
+
+	inline uintptr_t GetModuleBase() const { return m_pModuleBase; }
+	inline DWORD GetModuleSize() const { return m_nModuleSize; }
+	inline const char* const GetModuleName() const { return m_ModuleName; }
 	inline uintptr_t GetRVA(const uintptr_t nAddress) const { return (nAddress - GetModuleBase()); }
 
-#if _WIN64 
+private:
+
+#if defined( _WIN64 )
 	IMAGE_NT_HEADERS64* m_pNTHeaders;
 #else
 	IMAGE_NT_HEADERS32* m_pNTHeaders;
-#endif // #if _WIN64 
+#endif // #if defined( _WIN64 ) 
 	IMAGE_DOS_HEADER* m_pDOSHeader;
 
 	ModuleSections_t* m_ExecutableCode;
@@ -844,11 +877,9 @@ public:
 	ModuleSections_t* m_RunTimeData;
 	ModuleSections_t* m_ReadOnlyData;
 
-private:
-
-	std::string         m_ModuleName;
-	uintptr_t           m_pModuleBase;
-	DWORD				m_nModuleSize;
-	WORD				m_nNumSections;
+	char m_ModuleName[MAX_PATH]; // 260 should suffice.
+	uintptr_t m_pModuleBase;
+	DWORD m_nModuleSize;
+	WORD m_nNumSections;
 	ModuleSections_t* m_ModuleSections;
 };
