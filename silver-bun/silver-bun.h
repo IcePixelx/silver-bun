@@ -1,12 +1,11 @@
 #pragma once
 
-#ifndef USE_OUTSIDE_HEADERS
+#if !defined( SILVER_BUN_CPP_HDRS )
 #include <iostream>
 #include <vector>
 #include <windows.h>
 #include <intrin.h>
-#include "tebpeb64.h"
-#endif // !USE_OUTSIDE_HEADERS
+#endif // #if !defined( SILVER_BUN_CPP_HDRS )
 
 typedef const unsigned char* rsig_t;
 
@@ -832,34 +831,6 @@ public:
 
 	inline ModuleSections_t* const GetSections() const { return m_ModuleSections; }
 	inline uintptr_t GetRVA(const uintptr_t nAddress) const { return (nAddress - GetModuleBase()); }
-
-#if _WIN64 
-	void UnlinkFromPEB(void) const
-	{
-#define UNLINK_FROM_PEB(entry)    \
-	(entry).Flink->Blink = (entry).Blink; \
-	(entry).Blink->Flink = (entry).Flink;
-
-		const PEB64* processEnvBlock = reinterpret_cast<PEB64*>(__readgsqword(0x60)); // https://en.wikipedia.org/wiki/Win32_Thread_Information_Block
-		const LIST_ENTRY* inLoadOrderList = &processEnvBlock->Ldr->InLoadOrderModuleList;
-
-		for (LIST_ENTRY* entry = inLoadOrderList->Flink; entry != inLoadOrderList; entry = entry->Flink)
-		{
-			const PLDR_DATA_TABLE_ENTRY pldrEntry = reinterpret_cast<PLDR_DATA_TABLE_ENTRY>(entry->Flink);
-			const std::uintptr_t baseAddr = reinterpret_cast<std::uintptr_t>(pldrEntry->DllBase);
-
-			if (baseAddr != m_pModuleBase)
-				continue;
-
-			UNLINK_FROM_PEB(pldrEntry->InInitializationOrderLinks);
-			UNLINK_FROM_PEB(pldrEntry->InMemoryOrderLinks);
-			UNLINK_FROM_PEB(pldrEntry->InLoadOrderLinks);
-			break;
-		}
-#undef UNLINK_FROM_PEB
-	}
-
-#endif // #if _WIN64 
 
 #if _WIN64 
 	IMAGE_NT_HEADERS64* m_pNTHeaders;
