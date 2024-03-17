@@ -8,26 +8,34 @@
 #endif // #if !defined( SILVER_BUN_CPP_HDRS )
 
 #if ((defined(_MSVC_LANG) && _MSVC_LANG >= 201703L) || __cplusplus >= 201703L) // Check for C++17 or later.
-#define CUSTOM_VIRTUAL_FUNC
+#define CUSTOM_WINAPI_FUNC
 #endif // #if ((defined(_MSVC_LANG) && _MSVC_LANG >= 201703L) || __cplusplus >= 201703L)
 
+typedef const unsigned char* rsig_t;
 namespace silverbun
 {
-#if defined ( CUSTOM_VIRTUAL_FUNC )
-	typedef bool (*ProtectVirtualMemory)(void* const, const size_t, const uint32_t, uint32_t*);
-	typedef size_t(*QueryVirtualMemory)(const void* const, MEMORY_BASIC_INFORMATION*, size_t);
+#if defined ( CUSTOM_WINAPI_FUNC )
+	typedef bool (*API_ProtectVirtualMemory)(void* const, const size_t, const uint32_t, uint32_t*);
+	typedef size_t(*API_QueryVirtualMemory)(const void* const, MEMORY_BASIC_INFORMATION* const, size_t);
+	typedef int(*API_WideCharToMultiByte)(const uint32_t, const uint32_t, const wchar_t* const, const int, char*, const int, const char* const, bool* const);
 
-	inline ProtectVirtualMemory pPVM = nullptr;
-	inline QueryVirtualMemory pQVM = nullptr;
+	inline API_ProtectVirtualMemory pPVM = nullptr;
+	inline API_QueryVirtualMemory pQVM = nullptr;
+	inline API_WideCharToMultiByte pWCTMB = nullptr;
 
 	template<class T> void SetPVM(T const pFunc)
 	{
-		pPVM = reinterpret_cast<ProtectVirtualMemory>(pFunc);
+		pPVM = reinterpret_cast<API_ProtectVirtualMemory>(pFunc);
 	}
 
 	template<class T> void SetQVM(T const pFunc)
 	{
-		pQVM = reinterpret_cast<QueryVirtualMemory>(pFunc);
+		pQVM = reinterpret_cast<API_QueryVirtualMemory>(pFunc);
+	}
+
+	template<class T> void SetWCTMB(T const pFunc)
+	{
+		pWCTMB = reinterpret_cast<API_WideCharToMultiByte>(pFunc);
 	}
 
 	bool CallPVM(void* const pAddress, const size_t nSize, const uint32_t nProtect, uint32_t* pOldProtect)
@@ -35,9 +43,15 @@ namespace silverbun
 		return pPVM != nullptr ? pPVM(pAddress, nSize, nProtect, pOldProtect) : VirtualProtect(pAddress, nSize, nProtect, reinterpret_cast<DWORD*>(pOldProtect));
 	}
 
-	bool CallQVM(const void* const pAddress, MEMORY_BASIC_INFORMATION* pBuf, const uint32_t nLen)
+	bool CallQVM(const void* const pAddress, MEMORY_BASIC_INFORMATION* const pBuf, const uint32_t nLen)
 	{
 		return pQVM != nullptr ? pQVM(pAddress, pBuf, nLen) : VirtualQuery(pAddress, pBuf, nLen);
+	}
+
+	int CallWCTMB(const uint32_t nCodePage, const uint32_t nFlags, const wchar_t* const wszInWideString, const int nSizeOfInString, char* szOutString, const int nSizeOfOutString, const char* const szDefaultChar, bool* const usedDefaultChar)
+	{
+		return pWCTMB != nullptr ? pWCTMB(nCodePage, nFlags, wszInWideString, nSizeOfInString, szOutString, nSizeOfOutString, szDefaultChar, usedDefaultChar) : 
+			WideCharToMultiByte(nCodePage, nFlags, wszInWideString, nSizeOfInString, szOutString, nSizeOfOutString, szDefaultChar, reinterpret_cast<LPBOOL>(usedDefaultChar));
 	}
 #else
 	template<class T> void SetPVM(T const pFunc)
@@ -49,20 +63,105 @@ namespace silverbun
 	{
 		return;
 	}
+	template<class T> void SetWCTMB(T const pFunc)
+	{
+		return;
+	}
 
 	bool CallPVM(void* const pAddress, const size_t nSize, const uint32_t nProtect, uint32_t* pOldProtect)
 	{
 		return VirtualProtect(pAddress, nSize, nProtect, reinterpret_cast<DWORD*>(pOldProtect));
 	}
 
-	bool CallQVM(const void* const pAddress, MEMORY_BASIC_INFORMATION* pBuf, const uint32_t nLen)
+	bool CallQVM(const void* const pAddress, MEMORY_BASIC_INFORMATION* const pBuf, const uint32_t nLen)
 	{
 		return VirtualQuery(pAddress, pBuf, nLen);
 	}
-#endif // CUSTOM_VIRTUAL_FUNC
-}
 
-typedef const unsigned char* rsig_t;
+	int CallWCTMB(const uint32_t nCodePage, const uint32_t nFlags, const wchar_t* const wszInWideString, const int nSizeOfInString, char* szOutString, const int nSizeOfOutString, const char* szDefaultChar, bool* usedDefaultChar)
+	{
+		return WideCharToMultiByte(nCodePage, nFlags, wszInWideString, nSizeOfInString, szOutString, nSizeOfOutString, szDefaultChar, reinterpret_cast<LPBOOL>(usedDefaultChar));
+	}
+#endif // #if defined ( CUSTOM_WINAPI_FUNC )
+
+#if !defined( USE_WINAPI_FOR_MODULE_NAME )
+	// We don't need vise versa methods on both x86 and x64. Only get the version we actually need.
+	// Alignment is not gonna ruin my day.
+#pragma pack(push)
+#pragma pack(1)
+
+	// Smaller structs, we dont need the full picture.
+	template <class T>
+	struct UNICODE_STRING_T
+	{
+		union
+		{
+			struct
+			{
+				WORD Length;
+				WORD MaximumLength;
+			} u;
+			T align;
+		};
+		T Buffer;
+	};
+
+	template <class T>
+	struct LDR_DATA_TABLE_ENTRY_T
+	{
+		LIST_ENTRY InLoadOrderLinks;
+		LIST_ENTRY InMemoryOrderLinks;
+		union
+		{
+			LIST_ENTRY InInitializationOrderLinks;
+			LIST_ENTRY InProgressLinks;
+		} u;
+		PVOID DllBase;
+		PVOID EntryPoint;
+		T SizeOfImage; // We need to combat alignment here.
+		UNICODE_STRING_T<T> FullDllName;
+		UNICODE_STRING_T<T> BaseDllName;
+	};
+
+	struct PEB_LDR_DATA_S
+	{
+		ULONG Length;
+		BOOLEAN Initialized;
+		BYTE pad[3];
+		HANDLE SsHandle;
+		LIST_ENTRY InLoadOrderModuleList;
+	};
+
+	template <class T>
+	struct PEB_T
+	{
+		union
+		{
+			struct
+			{
+				BYTE InheritedAddressSpace;
+				BYTE ReadImageFileExecOptions;
+				BYTE BeingDebugged;
+				BYTE Unk; // Never found out whatever that was.
+			} u;
+			T dword0;
+		};
+		T Mutant;
+		T ImageBaseAddress;
+		PEB_LDR_DATA_S* Ldr;
+	};
+
+#if defined( _WIN64 ) // https://en.wikipedia.org/wiki/Win32_Thread_Information_Block
+	constexpr ptrdiff_t pebOffset = 0x60;
+#else
+	constexpr ptrdiff_t pebOffset = 0x30;
+#endif // #if defined( _WIN64 )
+
+	typedef PEB_T<uintptr_t> PEB_S;
+	typedef LDR_DATA_TABLE_ENTRY_T<uintptr_t> LDR_DATA_TABLE_ENTRY_S;
+#pragma pack(pop)
+#endif // #if !defined( USE_WINAPI_FOR_MODULE_NAME )
+}
 
 class CMemory
 {
@@ -223,32 +322,36 @@ public:
 
 	void Patch(const std::vector<uint8_t>& vOpcodeArray) const
 	{
+		using namespace silverbun;
+
 		uint32_t nOldProt = 0u;
 
 		size_t nSize = vOpcodeArray.size();
-		silverbun::CallPVM(reinterpret_cast<void*>(ptr), nSize, PAGE_EXECUTE_READWRITE, &nOldProt); // Patch page to be able to read and write to it.
+		CallPVM(reinterpret_cast<void*>(ptr), nSize, PAGE_EXECUTE_READWRITE, &nOldProt); // Patch page to be able to read and write to it.
 
 		for (size_t i = 0; i < vOpcodeArray.size(); i++)
 		{
 			*reinterpret_cast<uint8_t*>(ptr + i) = vOpcodeArray[i];
 		}
 
-		silverbun::CallPVM(reinterpret_cast<void*>(ptr), nSize, nOldProt, &nOldProt);
+		CallPVM(reinterpret_cast<void*>(ptr), nSize, nOldProt, &nOldProt);
 	}
 
 	void PatchString(const char* const szString) const
 	{
+		using namespace silverbun;
+
 		uint32_t nOldProt = 0u;
 		size_t nSize = strlen(szString);
 
-		silverbun::CallPVM(reinterpret_cast<void*>(ptr), nSize, PAGE_EXECUTE_READWRITE, &nOldProt); // Patch page to be able to read and write to it.
+		CallPVM(reinterpret_cast<void*>(ptr), nSize, PAGE_EXECUTE_READWRITE, &nOldProt); // Patch page to be able to read and write to it.
 
-		for (SIZE_T i = 0; i < nSize; i++)
+		for (size_t i = 0; i < nSize; i++)
 		{
 			*reinterpret_cast<uint8_t*>(ptr + i) = szString[i];
 		}
 
-		silverbun::CallPVM(reinterpret_cast<void*>(ptr), nSize, nOldProt, &nOldProt);
+		CallPVM(reinterpret_cast<void*>(ptr), nSize, nOldProt, &nOldProt);
 	}
 
 	CMemory FindPattern(const char* const szPattern, const Direction searchDirect = Direction::DOWN, const int opCodesToScan = 512, const ptrdiff_t nOccurences = 1) const
@@ -259,7 +362,7 @@ public:
 		const std::pair<size_t, const int*> bytesInfo = std::make_pair<size_t, const int*>(PatternBytes.size(), PatternBytes.data());
 		ptrdiff_t occurrences = 0;
 
-		for (long i = 01; i < opCodesToScan + bytesInfo.first; i++)
+		for (long i = 01; i < opCodesToScan + static_cast<int>(bytesInfo.first); i++)
 		{
 			bool bFound = true;
 			int nMemOffset = searchDirect == Direction::DOWN ? i : -i;
@@ -298,7 +401,7 @@ public:
 		const std::pair<size_t, const int*> bytesInfo = std::make_pair<size_t, const int*>(PatternBytes.size(), PatternBytes.data());
 		ptrdiff_t occurrences = 0;
 
-		for (long i = 01; i < opCodesToScan + bytesInfo.first; i++)
+		for (long i = 01; i < opCodesToScan + static_cast<int>(bytesInfo.first); i++)
 		{
 			bool bFound = true;
 			int nMemOffset = searchDirect == Direction::DOWN ? i : -i;
@@ -354,6 +457,8 @@ public:
 
 	static void HookVirtualMethod(const uintptr_t virtualTable, const void* const pHookMethod, const ptrdiff_t methodIndex, void** const ppOriginalMethod)
 	{
+		using namespace silverbun;
+
 		uint32_t nOldProt = 0u;
 
 		// Calculate delta to next virtual method.
@@ -361,29 +466,31 @@ public:
 		const uintptr_t originalFunction = *reinterpret_cast<uintptr_t*>(virtualMethod);
 
 		// Set page for current virtual method to execute n read n write so we can actually hook it.
-		silverbun::CallPVM(reinterpret_cast<void*>(virtualMethod), sizeof(virtualMethod), PAGE_EXECUTE_READWRITE, &nOldProt);
+		CallPVM(reinterpret_cast<void*>(virtualMethod), sizeof(virtualMethod), PAGE_EXECUTE_READWRITE, &nOldProt);
 
 		// Patch virtual method to our hook.
 		*reinterpret_cast<uintptr_t*>(virtualMethod) = reinterpret_cast<uintptr_t>(pHookMethod);
 
-		silverbun::CallPVM(reinterpret_cast<void*>(virtualMethod), sizeof(virtualMethod), nOldProt, &nOldProt);
+		CallPVM(reinterpret_cast<void*>(virtualMethod), sizeof(virtualMethod), nOldProt, &nOldProt);
 
 		*ppOriginalMethod = reinterpret_cast<void*>(originalFunction);
 	}
 
 	static void HookImportedFunction(const uintptr_t pImportedMethod, const void* const pHookMethod, void** const ppOriginalMethod)
 	{
+		using namespace silverbun;
+
 		uint32_t nOldProt = 0u;
 
 		const uintptr_t originalFunction = *reinterpret_cast<uintptr_t*>(pImportedMethod);
 
 		// Set page for current iat entry to execute n read n write so we can actually hook it.
-		silverbun::CallPVM(reinterpret_cast<void*>(pImportedMethod), sizeof(void*), PAGE_EXECUTE_READWRITE, &nOldProt);
+		CallPVM(reinterpret_cast<void*>(pImportedMethod), sizeof(void*), PAGE_EXECUTE_READWRITE, &nOldProt);
 
 		// Patch method to our hook.
 		*reinterpret_cast<uintptr_t*>(pImportedMethod) = reinterpret_cast<uintptr_t>(pHookMethod);
 
-		silverbun::CallPVM(reinterpret_cast<void*>(pImportedMethod), sizeof(uintptr_t), nOldProt, &nOldProt);
+		CallPVM(reinterpret_cast<void*>(pImportedMethod), sizeof(uintptr_t), nOldProt, &nOldProt);
 
 		*ppOriginalMethod = reinterpret_cast<void*>(originalFunction);
 	}
@@ -500,6 +607,7 @@ public:
 		size_t      m_nSectionSize;
 	};
 
+	// I highly expect you to not pass garbage for any of these values.
 	CModule(void) = default;
 	CModule(const char* const szModuleName)
 	{
@@ -510,7 +618,7 @@ public:
 
 		m_pModuleBase = reinterpret_cast<uintptr_t>(GetModuleHandleA(szModuleName));
 
-		Init();
+		ParsePEHdr();
 		LoadSections(".text", ".pdata", ".data", ".rdata");
 	}
 
@@ -523,7 +631,31 @@ public:
 
 		m_pModuleBase = reinterpret_cast<uintptr_t>(GetModuleHandleA(szModuleName));
 
-		Init();
+		ParsePEHdr();
+		LoadSections(szExecuteable, szExeception, szRunTime, szReadOnly);
+	}
+
+	CModule(const uintptr_t nModuleBase) : m_pModuleBase(nModuleBase)
+	{
+	#if !defined( USE_WINAPI_FOR_MODULE_NAME )
+		GetModuleNameFromLdr(nModuleBase, m_ModuleName, sizeof(m_ModuleName));
+	#else
+		GetModuleNameFromWinAPI(nModuleBase, m_ModuleName, sizeof(m_ModuleName));
+	#endif // #if !defined( USE_WINAPI_FOR_MODULE_NAME )
+
+		ParsePEHdr();
+		LoadSections(".text", ".pdata", ".data", ".rdata");
+	}
+
+	CModule(const uintptr_t nModuleBase, const char* const szExecuteable, const char* const szExeception, const char* const szRunTime, const char* const szReadOnly) : m_pModuleBase(nModuleBase)
+	{
+#if !defined( USE_WINAPI_FOR_MODULE_NAME )
+		GetModuleNameFromLdr(nModuleBase, m_ModuleName, sizeof(m_ModuleName));
+#else
+		GetModuleNameFromWinAPI(nModuleBase, m_ModuleName, sizeof(m_ModuleName));
+#endif // #if !defined( USE_WINAPI_FOR_MODULE_NAME )
+
+		ParsePEHdr();
 		LoadSections(szExecuteable, szExeception, szRunTime, szReadOnly);
 	}
 
@@ -531,7 +663,7 @@ public:
 	{
 		strcpy_s(m_ModuleName, szModuleName);
 
-		Init();
+		ParsePEHdr();
 		LoadSections(".text", ".pdata", ".data", ".rdata");
 	}
 
@@ -539,7 +671,7 @@ public:
 	{
 		strcpy_s(m_ModuleName, szModuleName);
 
-		Init();
+		ParsePEHdr();
 		LoadSections(szExecuteable, szExeception, szRunTime, szReadOnly);
 	}
 
@@ -549,31 +681,6 @@ public:
 		{
 			delete[] m_ModuleSections;
 			m_ModuleSections = nullptr;
-		}
-	}
-
-	void Init()
-	{
-		m_pDOSHeader = reinterpret_cast<IMAGE_DOS_HEADER*>(m_pModuleBase);
-		m_pNTHeaders = reinterpret_cast<decltype(m_pNTHeaders)>(m_pModuleBase + m_pDOSHeader->e_lfanew);
-		m_nModuleSize = m_pNTHeaders->OptionalHeader.SizeOfImage;
-		
-		// Populate sections now from NT Header.
-		const IMAGE_SECTION_HEADER* const pFirstSection = IMAGE_FIRST_SECTION(m_pNTHeaders);
-		m_nNumSections = m_pNTHeaders->FileHeader.NumberOfSections;
-
-		if (m_nNumSections != 0)
-		{
-			m_ModuleSections = new ModuleSections_t[m_nNumSections];
-			for (WORD i = 0; i < m_nNumSections; i++)
-			{
-				const IMAGE_SECTION_HEADER* const pCurrentSection = &pFirstSection[i];
-
-				ModuleSections_t* const pSection = &m_ModuleSections[i];
-				pSection->m_SectionName = reinterpret_cast<const char* const>(pCurrentSection->Name); // Should never move, getting a pointer here will do the trick.
-				pSection->m_pSectionBase = static_cast<uintptr_t>(m_pModuleBase + pCurrentSection->VirtualAddress);
-				pSection->m_nSectionSize = pCurrentSection->Misc.VirtualSize;
-			}
 		}
 	}
 
@@ -592,7 +699,6 @@ public:
 			return CMemory();
 
 		const bool bSectionValid = moduleSection ? moduleSection->IsSectionValid() : false;
-
 		const uintptr_t nBase = bSectionValid ? moduleSection->m_pSectionBase : m_ExecutableCode->m_pSectionBase;
 		const uintptr_t nSize = bSectionValid ? moduleSection->m_nSectionSize : m_ExecutableCode->m_nSectionSize;
 
@@ -632,7 +738,7 @@ public:
 						msks = _mm_cmpeq_epi8(xmm2, xmm3);
 						if ((_mm_movemask_epi8(msks) & nMasks[i]) == nMasks[i])
 						{
-							if ((i + 1) == iNumMasks)
+							if ((i + 1) == static_cast<uintptr_t>(iNumMasks))
 							{
 								if (nOccurrenceCount == nOccurrence)
 								{
@@ -741,9 +847,11 @@ public:
 	{
 		auto checkDataSection = [](const void* address, const std::size_t size)
 		{
+			using namespace silverbun;
+
 			MEMORY_BASIC_INFORMATION membInfo = { 0 };
 
-			silverbun::CallQVM(address, &membInfo, sizeof(membInfo));
+			CallQVM(address, &membInfo, sizeof(membInfo));
 
 			if (membInfo.AllocationBase && membInfo.BaseAddress && membInfo.State == MEM_COMMIT && !(membInfo.Protect & PAGE_GUARD) && membInfo.Protect != PAGE_NOACCESS)
 			{
@@ -757,7 +865,7 @@ public:
 
 		// This is very unstable, this doesn't check for the actual 'page' sizes.
 		// Also can be optimized to search per 'section'.
-		const uintptr_t endOfModule = m_pModuleBase + m_pNTHeaders->OptionalHeader.SizeOfImage - sizeof(uintptr_t);
+		const uintptr_t endOfModule = m_pModuleBase + m_nModuleSize - sizeof(uintptr_t);
 		for (uintptr_t currAddr = endOfModule; m_pModuleBase < currAddr; currAddr -= sizeof(uintptr_t))
 		{
 			if (*reinterpret_cast<uintptr_t*>(currAddr) == 0 && checkDataSection(reinterpret_cast<void*>(currAddr), nSize))
@@ -915,7 +1023,100 @@ public:
 	inline const char* const GetModuleName() const { return m_ModuleName; }
 	inline uintptr_t GetRVA(const uintptr_t nAddress) const { return (nAddress - GetModuleBase()); }
 
+#if !defined( USE_WINAPI_FOR_MODULE_NAME )
+	static __declspec(noinline) void GetModuleNameFromLdr(const uintptr_t moduleBase, char* const szModuleName, const size_t nModuleNameSize)
+	{
+		using namespace silverbun;
+
+	#if defined( _WIN64 )
+		const PEB_S* const pPeb = reinterpret_cast<const PEB_S* const>(__readgsqword(pebOffset));
+	#else
+		const PEB_S* const pPeb = reinterpret_cast<const PEB_S* const>(__readfsdword(pebOffset));
+	#endif // #if defined( _WIN64 )
+
+		const LIST_ENTRY* const pInLoadOrderList = &pPeb->Ldr->InLoadOrderModuleList;
+		for (LIST_ENTRY* entry = pInLoadOrderList->Flink; entry != pInLoadOrderList; entry = entry->Flink)
+		{
+			const LDR_DATA_TABLE_ENTRY_S* const pLdrEntry = reinterpret_cast<const LDR_DATA_TABLE_ENTRY_S* const>(entry->Flink);
+			const uintptr_t ldrModuleBase = reinterpret_cast<uintptr_t>(pLdrEntry->DllBase);
+			if (!ldrModuleBase) // Pretty sure happens if module hasn't loaded fully yet.
+				continue;
+
+			if (ldrModuleBase != moduleBase)
+				continue;
+
+			const UNICODE_STRING_T<uintptr_t>* const winBaseDllName = &pLdrEntry->BaseDllName;
+			const wchar_t* const wszDllName = reinterpret_cast<const wchar_t* const>(winBaseDllName->Buffer);
+
+			const int nBytesWritten = CallWCTMB(CP_UTF8, 0, wszDllName, (winBaseDllName->u.Length / sizeof(wchar_t)), szModuleName, static_cast<int>(nModuleNameSize), nullptr, nullptr);
+			if (nBytesWritten <= 0 || nBytesWritten >= static_cast<int>(nModuleNameSize)) // Should never go above >=, still >= for easier comparison sake.
+			{
+				// See if we wrote all the bytes and if the last character is a null terminator.
+				if (!(nBytesWritten == static_cast<int>(nModuleNameSize) && wszDllName[nModuleNameSize - 1] == '\0'))
+				{
+					*szModuleName = '\0';
+				}
+
+				break;
+			}
+			else
+			{
+				szModuleName[nBytesWritten] = '\0';
+				break;
+			}
+		}
+	}
+#else
+	static __declspec(noinline) void GetModuleNameFromWinAPI(const uintptr_t moduleBase, char* const szModuleName, const size_t nModuleNameSize)
+	{
+		const uint32_t nBytesWritten = GetModuleFileNameA(reinterpret_cast<HMODULE>(moduleBase), szModuleName, static_cast<uint32_t>(nModuleNameSize));
+		if (nBytesWritten == 0)
+			abort();
+
+		// Locate last path separator.
+		const char* szFileName = strrchr(szModuleName, '\\');
+		if (!szFileName)
+			szFileName = strrchr(szModuleName, '/');
+
+		// If we found a path separator, move over the memory for the module name. Otherwise we already got the full dll name.
+		if (szFileName)
+		{
+			szFileName++; // Skip the separator.
+			const ptrdiff_t stringPtrDiff = szFileName - szModuleName;
+			const size_t nStringSizeWithNullTerminator = strnlen_s(szFileName, (nModuleNameSize - stringPtrDiff)) + 1;
+
+			memmove(szModuleName, szFileName, nStringSizeWithNullTerminator);
+			szFileName = nullptr; // szFileName points to nothing now, lets just reset.
+			memset(szModuleName + nStringSizeWithNullTerminator, '\0', nModuleNameSize - nStringSizeWithNullTerminator); // Set anything past the name back to 0.
+		}
+	}
+#endif // #if !defined( USE_WINAPI_FOR_MODULE_NAME )
+
 private:
+	void ParsePEHdr()
+	{
+		m_pDOSHeader = reinterpret_cast<IMAGE_DOS_HEADER*>(m_pModuleBase);
+		m_pNTHeaders = reinterpret_cast<decltype(m_pNTHeaders)>(m_pModuleBase + m_pDOSHeader->e_lfanew);
+		m_nModuleSize = m_pNTHeaders->OptionalHeader.SizeOfImage;
+
+		// Populate sections now from NT Header.
+		const IMAGE_SECTION_HEADER* const pFirstSection = IMAGE_FIRST_SECTION(m_pNTHeaders);
+		m_nNumSections = m_pNTHeaders->FileHeader.NumberOfSections;
+
+		if (m_nNumSections != 0)
+		{
+			m_ModuleSections = new ModuleSections_t[m_nNumSections];
+			for (WORD i = 0; i < m_nNumSections; i++)
+			{
+				const IMAGE_SECTION_HEADER* const pCurrentSection = &pFirstSection[i];
+
+				ModuleSections_t* const pSection = &m_ModuleSections[i];
+				pSection->m_SectionName = reinterpret_cast<const char* const>(pCurrentSection->Name); // Should never move, getting a pointer here will do the trick.
+				pSection->m_pSectionBase = static_cast<uintptr_t>(m_pModuleBase + pCurrentSection->VirtualAddress);
+				pSection->m_nSectionSize = pCurrentSection->Misc.VirtualSize;
+			}
+		}
+	}
 
 #if defined( _WIN64 )
 	IMAGE_NT_HEADERS64* m_pNTHeaders;
