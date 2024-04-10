@@ -913,21 +913,21 @@ public:
 #if _WIN64
 		const uintptr_t rttiTDRva = rttiTypeDescriptor.GetPtr() - m_pModuleBase; // The RTTI gets referenced by a 4-Byte RVA address. We need to scan for that address.
 #else
-		const uintptr_t rttiTDRva = rttiTypeDescriptor.GetPtr(); // are all rtti addresses absolute on 32bit?
+		const uintptr_t rttiTDRva = rttiTypeDescriptor.GetPtr();
 #endif
 
 		while (scanStart < scanEnd)
 		{
 			moduleSection = { ".rdata", scanStart, m_ReadOnlyData->m_nSectionSize };
 			CMemory reference = FindPatternSIMD(reinterpret_cast<rsig_t>(&rttiTDRva), "xxxx", &moduleSection, nRefIndex);
-
 			if (!reference)
 				break;
 
-			const int32_t offset_from_class = reference.Offset(-8).GetValue<int32_t>();
-
-			// If the offset is not 0, it means the vtable belongs to a base class, not the class we want
-			if (offset_from_class != 0) {
+			// If the offset is not 0, it means the vtable belongs to a base class, not the class we want.
+			// TODO: Look into how to utilize this offset.
+			const int32_t vtableOffset = reference.Offset(-0x8).GetValue<int32_t>();
+			if (vtableOffset != 0)
+			{
 				scanStart = reference.Offset(0x4).GetPtr();
 				continue;
 			}
@@ -936,7 +936,7 @@ public:
 #if _WIN64
 			if (referenceOffset.GetValue<int32_t>() != 1) // Check if we got a RTTI Object Locator for this reference by checking if -0xC is 1, which is the 'signature' field which is always 1 on x64.
 #else
-			if (referenceOffset.GetValue<int32_t>() != 0) // is it always 0 on 32bit?
+			if (referenceOffset.GetValue<int32_t>() != 0) // x86 signature will always be 0, will add defines later. 
 #endif
 			{
 				scanStart = reference.Offset(0x4).GetPtr(); // Set location to current reference + 0x4 so we avoid pushing it back again into the vector.
@@ -944,10 +944,12 @@ public:
 			}
 
 			moduleSection = { ".rdata", m_ReadOnlyData->m_pSectionBase, m_ReadOnlyData->m_nSectionSize };
+
+			// TODO: get rid of mask through another method.
 #if _WIN64
-			return FindPatternSIMD(reinterpret_cast<rsig_t>(&referenceOffset), "xxxxxxxx", &moduleSection).OffsetSelf(0x8);
+			return FindPatternSIMD(reinterpret_cast<rsig_t>(&referenceOffset), "xxxxxxxx", &moduleSection).OffsetSelf(sizeof(uintptr_t));
 #else
-			return FindPatternSIMD(reinterpret_cast<rsig_t>(&referenceOffset), "xxxx", &moduleSection).OffsetSelf(0x4);
+			return FindPatternSIMD(reinterpret_cast<rsig_t>(&referenceOffset), "xxxx", &moduleSection).OffsetSelf(sizeof(uintptr_t));
 #endif
 		}
 
