@@ -896,30 +896,59 @@ public:
 		ModuleSections_t moduleSection(".data", m_RunTimeData->m_pSectionBase, m_RunTimeData->m_nSectionSize);
 
 		const auto tableNameInfo = CMemory::StringToMaskedBytes(szTableName, false);
+
+#if _WIN64
 		CMemory rttiTypeDescriptor = FindPatternSIMD(tableNameInfo.first.data(), tableNameInfo.second.c_str(), &moduleSection).OffsetSelf(-0x10);
+#else
+		CMemory rttiTypeDescriptor = FindPatternSIMD(tableNameInfo.first.data(), tableNameInfo.second.c_str(), &moduleSection).OffsetSelf(-0x8);
+#endif // _WIN64
+
 		if (!rttiTypeDescriptor)
 			return CMemory();
 
 		uintptr_t scanStart = m_ReadOnlyData->m_pSectionBase; // Get the start address of our scan.
 
 		const uintptr_t scanEnd = (m_ReadOnlyData->m_pSectionBase + m_ReadOnlyData->m_nSectionSize) - 0x4; // Calculate the end of our scan.
+
+#if _WIN64
 		const uintptr_t rttiTDRva = rttiTypeDescriptor.GetPtr() - m_pModuleBase; // The RTTI gets referenced by a 4-Byte RVA address. We need to scan for that address.
+#else
+		const uintptr_t rttiTDRva = rttiTypeDescriptor.GetPtr(); // are all rtti addresses absolute on 32bit?
+#endif
+
 		while (scanStart < scanEnd)
 		{
 			moduleSection = { ".rdata", scanStart, m_ReadOnlyData->m_nSectionSize };
 			CMemory reference = FindPatternSIMD(reinterpret_cast<rsig_t>(&rttiTDRva), "xxxx", &moduleSection, nRefIndex);
+
 			if (!reference)
 				break;
 
+			const int32_t offset_from_class = reference.Offset(-8).GetValue<int32_t>();
+
+			// If the offset is not 0, it means the vtable belongs to a base class, not the class we want
+			if (offset_from_class != 0) {
+				scanStart = reference.Offset(0x4).GetPtr();
+				continue;
+			}
+
 			CMemory referenceOffset = reference.Offset(-0xC);
+#if _WIN64
 			if (referenceOffset.GetValue<int32_t>() != 1) // Check if we got a RTTI Object Locator for this reference by checking if -0xC is 1, which is the 'signature' field which is always 1 on x64.
+#else
+			if (referenceOffset.GetValue<int32_t>() != 0) // is it always 0 on 32bit?
+#endif
 			{
 				scanStart = reference.Offset(0x4).GetPtr(); // Set location to current reference + 0x4 so we avoid pushing it back again into the vector.
 				continue;
 			}
 
 			moduleSection = { ".rdata", m_ReadOnlyData->m_pSectionBase, m_ReadOnlyData->m_nSectionSize };
+#if _WIN64
 			return FindPatternSIMD(reinterpret_cast<rsig_t>(&referenceOffset), "xxxxxxxx", &moduleSection).OffsetSelf(0x8);
+#else
+			return FindPatternSIMD(reinterpret_cast<rsig_t>(&referenceOffset), "xxxx", &moduleSection).OffsetSelf(0x4);
+#endif
 		}
 
 		return CMemory();
