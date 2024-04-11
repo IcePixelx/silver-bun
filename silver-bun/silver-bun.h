@@ -3,6 +3,7 @@
 #if !defined( SILVER_BUN_CPP_HDRS )
 #include <iostream>
 #include <vector>
+#include <tuple>
 #include <windows.h>
 #include <intrin.h>
 #endif // #if !defined( SILVER_BUN_CPP_HDRS )
