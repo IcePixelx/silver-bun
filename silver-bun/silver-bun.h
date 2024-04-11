@@ -908,7 +908,7 @@ public:
 
 		uintptr_t scanStart = m_ReadOnlyData->m_pSectionBase; // Get the start address of our scan.
 
-		const uintptr_t scanEnd = (m_ReadOnlyData->m_pSectionBase + m_ReadOnlyData->m_nSectionSize) - 0x4; // Calculate the end of our scan.
+		const uintptr_t scanEnd = (m_ReadOnlyData->m_pSectionBase + m_ReadOnlyData->m_nSectionSize); // Calculate the end of our scan.
 
 #if _WIN64
 		const uintptr_t rttiTDRva = rttiTypeDescriptor.GetPtr() - m_pModuleBase; // The RTTI gets referenced by a 4-Byte RVA address. We need to scan for that address.
@@ -918,7 +918,7 @@ public:
 
 		while (scanStart < scanEnd)
 		{
-			moduleSection = { ".rdata", scanStart, m_ReadOnlyData->m_nSectionSize };
+			moduleSection = { ".rdata", scanStart, static_cast<size_t>(scanEnd - scanStart) };
 			CMemory reference = FindPatternSIMD(reinterpret_cast<rsig_t>(&rttiTDRva), "xxxx", &moduleSection, nRefIndex);
 			if (!reference)
 				break;
