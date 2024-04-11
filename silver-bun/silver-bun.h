@@ -308,9 +308,9 @@ public:
 	{
 		uintptr_t ref = ptr;
 
-		for (auto [byteAtCurrentAddress, i] = std::tuple<uint8_t, size_t>{ uint8_t(), (size_t)0 }; i < vOpcodeArray.size(); i++, ref++)
+		for (size_t i = 0; i < vOpcodeArray.size(); i++, ref++)
 		{
-			byteAtCurrentAddress = *reinterpret_cast<uint8_t*>(ref);
+			uint8_t byteAtCurrentAddress = *reinterpret_cast<uint8_t*>(ref);
 
 			// If byte at ptr doesn't equal in the byte array return false.
 			if (byteAtCurrentAddress != vOpcodeArray[i])
