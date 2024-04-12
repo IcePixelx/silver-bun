@@ -310,7 +310,7 @@ public:
 
 		for (size_t i = 0; i < vOpcodeArray.size(); i++, ref++)
 		{
-			uint8_t byteAtCurrentAddress = *reinterpret_cast<uint8_t*>(ref);
+			const uint8_t byteAtCurrentAddress = *reinterpret_cast<const uint8_t*>(ref);
 
 			// If byte at ptr doesn't equal in the byte array return false.
 			if (byteAtCurrentAddress != vOpcodeArray[i])
