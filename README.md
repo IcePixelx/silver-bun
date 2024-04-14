@@ -1,6 +1,6 @@
 # Description
 
- * Module and Memory hacking package for x64 applications.
+ * Module and Memory hacking package for x86 & x64 applications.
 
 ## Instructions
 

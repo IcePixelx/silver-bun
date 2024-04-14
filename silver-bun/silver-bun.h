@@ -161,6 +161,12 @@ namespace silverbun
 	typedef LDR_DATA_TABLE_ENTRY_T<uintptr_t> LDR_DATA_TABLE_ENTRY_S;
 #pragma pack(pop)
 #endif // #if !defined( USE_WINAPI_FOR_MODULE_NAME )
+
+#if defined( _WIN64 ) 
+	constexpr uint32_t COL_SIG_REV = 0u;
+#else
+	constexpr uint32_t COL_SIG_REV = 1u;
+#endif // #if defined( _WIN64 ) 
 }
 
 class CMemory
@@ -890,6 +896,8 @@ public:
 
 	CMemory GetVirtualMethodTable(const char* const szTableName, const size_t nRefIndex = 0) const
 	{
+		using namespace silverbun;
+
 		if (!m_ReadOnlyData->IsSectionValid())
 			return CMemory();
 
@@ -898,9 +906,9 @@ public:
 		const auto tableNameInfo = CMemory::StringToMaskedBytes(szTableName, false);
 
 #if _WIN64
-		CMemory rttiTypeDescriptor = FindPatternSIMD(tableNameInfo.first.data(), tableNameInfo.second.c_str(), &moduleSection).OffsetSelf(-0x10);
+		const CMemory rttiTypeDescriptor = FindPatternSIMD(tableNameInfo.first.data(), tableNameInfo.second.c_str(), &moduleSection).OffsetSelf(-0x10);
 #else
-		CMemory rttiTypeDescriptor = FindPatternSIMD(tableNameInfo.first.data(), tableNameInfo.second.c_str(), &moduleSection).OffsetSelf(-0x8);
+		const CMemory rttiTypeDescriptor = FindPatternSIMD(tableNameInfo.first.data(), tableNameInfo.second.c_str(), &moduleSection).OffsetSelf(-0x8);
 #endif // _WIN64
 
 		if (!rttiTypeDescriptor)
@@ -919,13 +927,13 @@ public:
 		while (scanStart < scanEnd)
 		{
 			moduleSection = { ".rdata", scanStart, static_cast<size_t>(scanEnd - scanStart) };
-			CMemory reference = FindPatternSIMD(reinterpret_cast<rsig_t>(&rttiTDRva), "xxxx", &moduleSection, nRefIndex);
+			const CMemory reference = FindPatternSIMD(reinterpret_cast<rsig_t>(&rttiTDRva), "xxxx", &moduleSection, nRefIndex);
 			if (!reference)
 				break;
 
 			// If the offset is not 0, it means the vtable belongs to a base class, not the class we want.
 			// TODO: Look into how to utilize this offset.
-			const int32_t vtableOffset = reference.Offset(-0x8).GetValue<int32_t>();
+			const uint32_t vtableOffset = reference.Offset(-0x8).GetValue<uint32_t>();
 			if (vtableOffset != 0)
 			{
 				scanStart = reference.Offset(0x4).GetPtr();
@@ -933,13 +941,9 @@ public:
 			}
 
 			CMemory referenceOffset = reference.Offset(-0xC);
-#if _WIN64
-			if (referenceOffset.GetValue<int32_t>() != 1) // Check if we got a RTTI Object Locator for this reference by checking if -0xC is 1, which is the 'signature' field which is always 1 on x64.
-#else
-			if (referenceOffset.GetValue<int32_t>() != 0) // x86 signature will always be 0, will add defines later. 
-#endif
+			if (referenceOffset.GetValue<uint32_t>() != COL_SIG_REV) // Check if we got a RTTI Object Locator for this reference by checking if -0xC is 1, which is the 'signature' field.
 			{
-				scanStart = reference.Offset(0x4).GetPtr(); // Set location to current reference + 0x4 so we avoid pushing it back again into the vector.
+				scanStart = reference.Offset(0x4).GetPtr();
 				continue;
 			}
 
@@ -1052,7 +1056,7 @@ public:
 	inline uintptr_t GetModuleBase() const { return m_pModuleBase; }
 	inline DWORD GetModuleSize() const { return m_nModuleSize; }
 	inline const char* const GetModuleName() const { return m_ModuleName; }
-	inline uintptr_t GetRVA(const uintptr_t nAddress) const { return (nAddress - GetModuleBase()); }
+	inline uintptr_t GetRVA(const uintptr_t nAddress) const { return (nAddress - m_pModuleBase); }
 
 #if !defined( USE_WINAPI_FOR_MODULE_NAME )
 	static __declspec(noinline) void GetModuleNameFromLdr(const uintptr_t moduleBase, char* const szModuleName, const size_t nModuleNameSize)
