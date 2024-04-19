@@ -163,9 +163,9 @@ namespace silverbun
 #endif // #if !defined( USE_WINAPI_FOR_MODULE_NAME )
 
 #if defined( _WIN64 ) 
-	constexpr uint32_t COL_SIG_REV = 0u;
-#else
 	constexpr uint32_t COL_SIG_REV = 1u;
+#else
+	constexpr uint32_t COL_SIG_REV = 0u;
 #endif // #if defined( _WIN64 ) 
 }
 
