@@ -1087,7 +1087,7 @@ public:
 			if (nBytesWritten <= 0 || nBytesWritten >= static_cast<int>(nModuleNameSize)) // Should never go above >=, still >= for easier comparison sake.
 			{
 				// See if we wrote all the bytes and if the last character is a null terminator.
-				if (!(nBytesWritten == static_cast<int>(nModuleNameSize) && wszDllName[nModuleNameSize - 1] == '\0'))
+				if (!(nBytesWritten == static_cast<int>(nModuleNameSize) && szModuleName[nModuleNameSize - 1] == '\0'))
 				{
 					*szModuleName = '\0';
 				}
