@@ -791,7 +791,7 @@ public:
 
 		for (size_t i = 0ull; i < m_ExecutableCode->m_nSectionSize - 0x5; i++)
 		{
-			byte byte = pTextStart[i];
+			const uint8_t byte = pTextStart[i];
 			if (byte == 0x8D) // 0x8D = LEA
 			{
 				const CMemory skipOpCode = CMemory(reinterpret_cast<uintptr_t>(&pTextStart[i])).OffsetSelf(0x2); // Skip next 2 opcodes, those being the instruction and the register.
