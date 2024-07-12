@@ -294,7 +294,7 @@ public:
 	inline CMemory ResolveRelativeAddress(const ptrdiff_t registerOffset = 0x0, const ptrdiff_t nextInstructionOffset = 0x4) const
 	{
 		const uintptr_t skipRegister = ptr + registerOffset;
-		const int32_t relativeAddress = *reinterpret_cast<int32_t*>(skipRegister);
+		const ptrdiff_t relativeAddress = *reinterpret_cast<ptrdiff_t*>(skipRegister);
 
 		const uintptr_t nextInstruction = ptr + nextInstructionOffset;
 		return CMemory(nextInstruction + relativeAddress);
@@ -303,7 +303,7 @@ public:
 	inline CMemory ResolveRelativeAddressSelf(const ptrdiff_t registerOffset = 0x0, const ptrdiff_t nextInstructionOffset = 0x4)
 	{
 		const uintptr_t skipRegister = ptr + registerOffset;
-		const int32_t relativeAddress = *reinterpret_cast<int32_t*>(skipRegister);
+		const ptrdiff_t relativeAddress = *reinterpret_cast<ptrdiff_t*>(skipRegister);
 
 		const uintptr_t nextInstruction = ptr + nextInstructionOffset;
 		ptr = nextInstruction + relativeAddress;
@@ -332,7 +332,7 @@ public:
 
 		uint32_t nOldProt = 0u;
 
-		size_t nSize = vOpcodeArray.size();
+		const size_t nSize = vOpcodeArray.size();
 		CallPVM(reinterpret_cast<void*>(ptr), nSize, PAGE_EXECUTE_READWRITE, &nOldProt); // Patch page to be able to read and write to it.
 
 		for (size_t i = 0; i < vOpcodeArray.size(); i++)
@@ -348,8 +348,8 @@ public:
 		using namespace silverbun;
 
 		uint32_t nOldProt = 0u;
-		size_t nSize = strlen(szString);
 
+		const size_t nSize = strlen(szString);
 		CallPVM(reinterpret_cast<void*>(ptr), nSize, PAGE_EXECUTE_READWRITE, &nOldProt); // Patch page to be able to read and write to it.
 
 		for (size_t i = 0; i < nSize; i++)
@@ -364,16 +364,16 @@ public:
 	{
 		const uint8_t* const pScanBytes = reinterpret_cast<uint8_t*>(ptr);
 
-		const std::vector<int> PatternBytes = PatternToBytes(szPattern);
+		const std::vector<int> PatternBytes = PatternToBytes(szPattern); // Convert our pattern to a byte array.
 		const std::pair<size_t, const int*> bytesInfo = std::make_pair<size_t, const int*>(PatternBytes.size(), PatternBytes.data());
 		ptrdiff_t occurrences = 0;
 
-		for (long i = 01; i < opCodesToScan + static_cast<int>(bytesInfo.first); i++)
+		for (int i = 0; i < opCodesToScan + static_cast<int>(bytesInfo.first); ++i)
 		{
 			bool bFound = true;
-			int nMemOffset = searchDirect == Direction::DOWN ? i : -i;
+			const int nMemOffset = searchDirect == Direction::DOWN ? i : -i;
 
-			for (DWORD j = 0ul; j < bytesInfo.first; j++)
+			for (size_t j = 0ul; j < bytesInfo.first; ++j)
 			{
 				// If either the current byte equals to the byte in our pattern or our current byte in the pattern is a wildcard
 				// our if clause will be false.
@@ -407,12 +407,12 @@ public:
 		const std::pair<size_t, const int*> bytesInfo = std::make_pair<size_t, const int*>(PatternBytes.size(), PatternBytes.data());
 		ptrdiff_t occurrences = 0;
 
-		for (long i = 01; i < opCodesToScan + static_cast<int>(bytesInfo.first); i++)
+		for (int i = 0; i < opCodesToScan + static_cast<int>(bytesInfo.first); ++i)
 		{
 			bool bFound = true;
-			int nMemOffset = searchDirect == Direction::DOWN ? i : -i;
+			const int nMemOffset = searchDirect == Direction::DOWN ? i : -i;
 
-			for (DWORD j = 0ul; j < bytesInfo.first; j++)
+			for (size_t j = 0ul; j < bytesInfo.first; ++j)
 			{
 				// If either the current byte equals to the byte in our pattern or our current byte in the pattern is a wildcard
 				// our if clause will be false.
@@ -557,7 +557,7 @@ public:
 		return make_pair(vBytes, svMask);
 	};
 
-	static std::vector<int> StringToBytes(const char* const szInput, bool bNullTerminator)
+	static std::vector<int> StringToBytes(const char* const szInput, const bool bNullTerminator)
 	{
 		const char* pszStringStart = const_cast<char*>(szInput);
 		const char* pszStringEnd = pszStringStart + strlen(szInput);
@@ -573,10 +573,11 @@ public:
 		{
 			vBytes.push_back('\0');
 		}
+
 		return vBytes;
 	};
 
-	static std::pair<std::vector<uint8_t>, std::string> StringToMaskedBytes(const char* const szInput, bool bNullTerminator)
+	static std::pair<std::vector<uint8_t>, std::string> StringToMaskedBytes(const char* const szInput, const bool bNullTerminator)
 	{
 		const char* pszStringStart = const_cast<char*>(szInput);
 		const char* pszStringEnd = pszStringStart + strlen(szInput);
@@ -595,6 +596,7 @@ public:
 			vBytes.push_back(0x0);
 			svMask += 'x';
 		}
+
 		return make_pair(vBytes, svMask);
 	};
 };
@@ -620,7 +622,7 @@ public:
 		// We need a module name here, abort if null.
 		strcpy_s(m_ModuleName, szModuleName);
 		if (m_ModuleName[0] == '\0')
-			abort();
+			return;
 
 		m_pModuleBase = reinterpret_cast<uintptr_t>(GetModuleHandleA(szModuleName));
 
@@ -633,7 +635,7 @@ public:
 		// Same as above.
 		strcpy_s(m_ModuleName, szModuleName);
 		if (m_ModuleName[0] == '\0')
-			abort();
+			return;
 
 		m_pModuleBase = reinterpret_cast<uintptr_t>(GetModuleHandleA(szModuleName));
 
@@ -729,7 +731,7 @@ public:
 		}
 		const __m128i xmm1 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(pPattern));
 		__m128i xmm2, xmm3, msks;
-		for (; pData != pEnd; _mm_prefetch(reinterpret_cast<const char*>(++pData + 64), _MM_HINT_NTA))
+		for (; pData != pEnd; _mm_prefetch(reinterpret_cast<const char* const>(++pData + 64), _MM_HINT_NTA))
 		{
 			if (pPattern[0] == pData[0])
 			{
@@ -775,7 +777,7 @@ public:
 		return FindPatternSIMD(patternInfo.first.data(), patternInfo.second.c_str(), moduleSection, nOccurrence);
 	}
 
-	CMemory FindString(const char* const szString, const ptrdiff_t nOccurrence = 1, bool bNullTerminator = false) const
+	CMemory FindString(const char* const szString, const ptrdiff_t nOccurrence = 1, const bool bNullTerminator = false) const
 	{
 		if (!m_ExecutableCode->IsSectionValid())
 			return CMemory();
@@ -982,15 +984,15 @@ public:
 				for (; pOgFirstThunk->u1.AddressOfData; ++pOgFirstThunk, ++pFirstThunk)
 				{
 					// Get image import by name.
-					const IMAGE_IMPORT_BY_NAME* pImageImportByName = reinterpret_cast<IMAGE_IMPORT_BY_NAME*>(m_pModuleBase + pOgFirstThunk->u1.AddressOfData);
+					const IMAGE_IMPORT_BY_NAME* const pImageImportByName = reinterpret_cast<IMAGE_IMPORT_BY_NAME*>(m_pModuleBase + pOgFirstThunk->u1.AddressOfData);
 
 					if (_stricmp(pImageImportByName->Name, szFunctionName) == 0)
 					{
 						// Grab function address from firstThunk.
 					#if defined( _WIN64 )
-						uintptr_t* pFunctionAddress = &pFirstThunk->u1.Function;
+						uintptr_t* const pFunctionAddress = &pFirstThunk->u1.Function;
 					#else
-						uintptr_t* pFunctionAddress = reinterpret_cast<uintptr_t*>(&pFirstThunk->u1.Function);
+						uintptr_t* const pFunctionAddress = reinterpret_cast<uintptr_t*>(&pFirstThunk->u1.Function);
 					#endif // #if defined( _WIN64 
 
 						// Reference or address?
@@ -1003,7 +1005,7 @@ public:
 		return CMemory();
 	}
 
-	CMemory GetExportedFunction(const char* szFunctionName) const
+	CMemory GetExportedFunction(const char* const szFunctionName) const
 	{
 		const IMAGE_EXPORT_DIRECTORY* pImageExportDirectory = reinterpret_cast<IMAGE_EXPORT_DIRECTORY*>(m_pModuleBase + m_pNTHeaders->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT].VirtualAddress);
 		if (!pImageExportDirectory)
